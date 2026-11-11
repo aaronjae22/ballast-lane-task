@@ -17,7 +17,8 @@ Team Task Board: a task management REST API (Django + DRF) with a React + TypeSc
 
 Created in iteration 0. Whoever adds or changes a command updates this list in the same commit.
 
-- Whole stack: `docker compose up --build`
+- Whole stack: `docker compose up --build` (no `.env` needed; `.env.example` lists the overrides). Postgres is published on host port 5433, Mailpit's UI on http://localhost:8025
+- Backend prod image: `docker build --target prod backend/`
 - Backend (run from `backend/`):
   - Install: `uv sync`
   - Tests: `uv run pytest`
