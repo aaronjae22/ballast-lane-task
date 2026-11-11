@@ -40,3 +40,42 @@ force-exclude = true
 
 [tool.ruff.lint]
 extend-select = ["E", "F", "W", "I", "B", "UP", "DJ", "SIM", "RUF"]
+
+[tool.importlinter]
+root_packages = ["tasks"]
+# Needed so contracts can name third-party packages (django, rest_framework, celery).
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Domain imports nothing from Django, DRF or Celery"
+type = "forbidden"
+source_modules = ["tasks.domain"]
+forbidden_modules = ["django", "rest_framework", "celery"]
+
+[[tool.importlinter.contracts]]
+# import-linter has no allowlist contract, so "only tasks.domain" is enforced by
+# forbidding the frameworks and every other tasks module (ADR 0011).
+name = "Application imports only the domain"
+type = "forbidden"
+source_modules = ["tasks.application"]
+forbidden_modules = [
+    "django",
+    "rest_framework",
+    "celery",
+    "tasks.infrastructure",
+    "tasks.api",
+    "tasks.selectors",
+    # Add tasks.models and tasks.admin in the commit that creates them (iteration 2):
+    # import-linter rejects forbidden modules that don't exist yet.
+]
+
+[[tool.importlinter.contracts]]
+# Strictly ordered: tasks.api.wiring (the composition root) imports infrastructure adapters.
+name = "Layers: api > infrastructure > application > domain"
+type = "layers"
+layers = [
+    "tasks.api",
+    "tasks.infrastructure",
+    "tasks.application",
+    "tasks.domain",
+]
