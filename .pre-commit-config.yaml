@@ -18,14 +18,15 @@ repos:
       - id: ruff-check
         name: ruff check
         # --project keeps the working directory at the repo root, so the
-        # file paths pre-commit passes still resolve.
-        entry: uv run --project backend ruff check --fix
+        # file paths pre-commit passes still resolve. From the root, ruff only
+        # honors force-exclude as a CLI flag, so it's passed here too.
+        entry: uv run --project backend ruff check --fix --force-exclude
         language: system
         types_or: [python, pyi]
         files: ^backend/
       - id: ruff-format
         name: ruff format
-        entry: uv run --project backend ruff format
+        entry: uv run --project backend ruff format --force-exclude
         language: system
         types_or: [python, pyi]
         files: ^backend/

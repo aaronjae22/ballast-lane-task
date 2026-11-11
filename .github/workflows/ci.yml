@@ -39,3 +39,6 @@ jobs:
 
       - name: Check architecture contracts
         run: uv run lint-imports
+
+      - name: Test with coverage gate
+        run: uv run pytest

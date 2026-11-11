@@ -23,7 +23,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Tests: `uv run pytest`
   - Lint and format: `uv run ruff check .` and `uv run ruff format .` (CI runs `uv run ruff format --check .`)
   - Architecture contracts: `uv run lint-imports`
-  - Django: `uv run python manage.py <command>`
+  - Django: `DJANGO_DEBUG=true uv run python manage.py <command>` (with DEBUG off, the settings refuse the built-in secret key; set `DJANGO_SECRET_KEY` instead)
 - Frontend (run from `frontend/`, from iteration 5): `npm ci`, `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run gen:api`
 - pre-commit (from the repo root; needs `uv sync` in `backend/` first):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
