@@ -63,9 +63,10 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
 
 ## Git
 
-- Commit at each checkpoint (for example: failing tests written, then implementation passing). Conventional Commits, one concern per commit. Every `git commit` waits for my approval.
+- Tiny commits, one concern each (for example: failing tests, then the implementation that passes them). Conventional Commits, with a body that explains why, not which files changed. Every `git commit` waits for my approval.
 - Every commit an agent makes ends with a `Co-Authored-By:` trailer naming the agent. Claude Code adds it automatically through `.claude/settings.json`; other agents add it themselves.
-- Work on the current iteration branch (`iter/NN-name`). Never commit to `main`, push, merge, or rewrite history (no amend, rebase, reset or force push). Corrections are new commits.
+- Work on the current task branch (`task/<iteration>-<NN>-<short-name>`), created from an up-to-date `main`. Never commit to `main`.
+- When a task is done, push its branch and open its PR with `gh pr create`; both wait for my approval. Never push to `main`, force-push, merge, or rewrite history (no amend, rebase or reset). Corrections are new commits. Merging is mine.
 - Never skip hooks (`--no-verify`).
 - Don't add a dependency without saying why in your summary.
 
