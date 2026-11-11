@@ -35,3 +35,11 @@ repos:
         language: system
         files: ^backend/(pyproject\.toml|uv\.lock)$
         pass_filenames: false
+      - id: lint-imports
+        name: lint-imports
+        # --directory: import-linter reads its config and finds the tasks package
+        # from the working directory.
+        entry: uv run --directory backend lint-imports
+        language: system
+        files: ^backend/(.*\.py|pyproject\.toml)$
+        pass_filenames: false
