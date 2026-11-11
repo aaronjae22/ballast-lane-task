@@ -1,0 +1,37 @@
+# Run everything: uv run --project backend pre-commit run --all-files
+# Python tools run as local hooks through uv, so pre-commit, the editor and CI
+# all use the versions pinned in backend/uv.lock (ADR 0008).
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        # Keep Markdown hard line breaks (two trailing spaces).
+        args: [--markdown-linebreak-ext=md]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        # --project keeps the working directory at the repo root, so the
+        # file paths pre-commit passes still resolve.
+        entry: uv run --project backend ruff check --fix
+        language: system
+        types_or: [python, pyi]
+        files: ^backend/
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project backend ruff format
+        language: system
+        types_or: [python, pyi]
+        files: ^backend/
+      - id: uv-lock-check
+        name: uv lock --check
+        entry: uv lock --check --directory backend
+        language: system
+        files: ^backend/(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
