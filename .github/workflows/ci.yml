@@ -79,3 +79,26 @@ jobs:
 
       - name: Build the backend prod image
         run: docker build --target prod --tag taskboard-backend:ci backend/
+
+      # spec section 13: "docker compose up --build serves /api/health/". --wait
+      # fails if a container exits, e.g. when the entrypoint's migrate fails.
+      - name: Start the compose stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+
+      - name: Check that /api/health/ is ok
+        run: |
+          body=$(curl --fail --silent --show-error --retry 10 --retry-connrefused \
+            --retry-delay 3 http://localhost:8000/api/health/)
+          echo "$body"
+          test "$body" = '{"status":"ok"}'
+
+      - name: Check that the entrypoint applied every migration
+        run: docker compose exec -T backend python manage.py migrate --check
+
+      - name: Show compose logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the compose stack
+        if: always()
+        run: docker compose down --volumes
