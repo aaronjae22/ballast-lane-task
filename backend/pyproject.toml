@@ -30,3 +30,13 @@ dev = [
 [tool.uv]
 # A Django project, not an installable package: uv manages the environment only.
 package = false
+
+[tool.ruff]
+line-length = 100
+# Django-generated migrations are not hand-edited, so they're not linted or formatted.
+extend-exclude = ["**/migrations/*"]
+# pre-commit passes file paths explicitly; without this, ruff ignores the excludes for them.
+force-exclude = true
+
+[tool.ruff.lint]
+extend-select = ["E", "F", "W", "I", "B", "UP", "DJ", "SIM", "RUF"]
