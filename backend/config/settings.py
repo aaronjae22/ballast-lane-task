@@ -106,6 +106,10 @@ CACHES = {
     }
 }
 
+# Celery: Redis is the broker (worker and beat arrive in iteration 4)
+
+CELERY_BROKER_URL = REDIS_URL
+
 # Email: SMTP, pointing at Mailpit locally (web UI on http://localhost:8025)
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
