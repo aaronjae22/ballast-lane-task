@@ -1,0 +1,3 @@
+"""Root URL configuration."""
+
+urlpatterns = []
