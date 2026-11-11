@@ -42,3 +42,13 @@ jobs:
 
       - name: Test with coverage gate
         run: uv run pytest
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build the backend prod image
+        run: docker build --target prod --tag taskboard-backend:ci backend/

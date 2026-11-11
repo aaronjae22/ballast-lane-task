@@ -13,6 +13,13 @@ repos:
       - id: check-toml
       - id: check-added-large-files
 
+  # Downloads the hadolint binary into pre-commit's own environment, so it runs
+  # the same locally and in CI without Docker or a system install.
+  - repo: https://github.com/AleksaC/hadolint-py
+    rev: v2.15.1
+    hooks:
+      - id: hadolint
+
   - repo: local
     hooks:
       - id: ruff-check
