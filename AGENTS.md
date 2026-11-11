@@ -21,11 +21,13 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
 - Backend (run from `backend/`):
   - Install: `uv sync`
   - Tests: `uv run pytest`
-  - Lint and format: `uv run ruff check .` and `uv run ruff format .`
+  - Lint and format: `uv run ruff check .` and `uv run ruff format .` (CI runs `uv run ruff format --check .`)
   - Architecture contracts: `uv run lint-imports`
   - Django: `uv run python manage.py <command>`
 - Frontend (run from `frontend/`, from iteration 5): `npm ci`, `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run gen:api`
-- All pre-commit hooks: `uv run --project backend pre-commit run --all-files` (from the repo root)
+- pre-commit (from the repo root; needs `uv sync` in `backend/` first):
+  - Install the git hook once per clone: `uv run --project backend pre-commit install`
+  - All hooks: `uv run --project backend pre-commit run --all-files`
 
 ## Backend architecture rules
 
