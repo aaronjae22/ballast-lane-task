@@ -1,0 +1,19 @@
+{
+  "attribution": {
+    "commit": "Co-Authored-By: Claude <noreply@anthropic.com>",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "permissions": {
+    "ask": [
+      "Bash(git commit:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit --amend:*)"
+    ]
+  }
+}

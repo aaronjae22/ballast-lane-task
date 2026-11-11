@@ -1,0 +1,13 @@
+{
+  // Recommended extensions for this repo. VS Code offers to install them on first open.
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "charliermarsh.ruff",
+    "batisteo.vscode-django",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "redhat.vscode-yaml",
+    "tamasfe.even-better-toml"
+  ]
+}

@@ -1,0 +1,108 @@
+// Shared workspace settings for this repo, committed so every contributor gets the
+// same lint, format and test behavior. Personal appearance (theme, fonts, colors)
+// lives in your VS Code profile, not here.
+{
+  // Files
+  // Fresh repo where ruff and Prettier enforce formatting from the first commit,
+  // so trimming trailing whitespace on save won't add unrelated diffs.
+  "files.insertFinalNewline": true,
+  "files.trimTrailingWhitespace": true,
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/.pytest_cache": true,
+    "**/.ruff_cache": true
+  },
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/staticfiles/**": true,
+    "**/htmlcov/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/htmlcov": true,
+    "**/uv.lock": true,
+    "**/package-lock.json": true
+  },
+
+  // Python / Django (backend/)
+  // uv creates backend/.venv and we run everything through `uv run`. uv venvs ship
+  // without pip, so there's no python-envs package-manager mapping here.
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  // The Django project root is backend/, not the repo root, so Pylance needs it
+  // to resolve imports like `from tasks.domain import ...`.
+  "python.analysis.extraPaths": ["./backend"],
+  // No pytestArgs: backend/pyproject.toml sets the settings module, test paths and coverage.
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.cwd": "${workspaceFolder}/backend",
+
+  // Ruff from the project's venv: the same version pre-commit and CI run via `uv run`,
+  // so the editor's squiggles match what a commit will report.
+  "ruff.importStrategy": "fromEnvironment",
+  // Format on save is safe because the repo is ruff-formatted from the first commit.
+  // Imports are sorted on save; other autofixes (like removing unused imports while
+  // you're still typing) are left to pre-commit.
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit"
+    }
+  },
+
+  // Email templates for the Celery notifications (batisteo.vscode-django).
+  "files.associations": {
+    "**/templates/**/*.html": "django-html",
+    "**/templates/**/*.txt": "django-txt"
+  },
+  "emmet.includeLanguages": {
+    "django-html": "html"
+  },
+
+  // Frontend (frontend/): ESLint lints, Prettier formats, TypeScript from the project.
+  "eslint.workingDirectories": [{ "directory": "frontend", "changeProcessCWD": true }],
+  "typescript.tsdk": "frontend/node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  // Prettier only runs where a config exists (frontend/), so it never reformats
+  // backend or root files.
+  "prettier.requireConfig": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" }
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[css]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+
+  // YAML: docker-compose, GitHub Actions workflows and .pre-commit-config.yaml
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml",
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true
+  },
+
+  // Markdown: README, docs/, AGENTS.md, CLAUDE.md
+  "[markdown]": {
+    "editor.wordWrap": "on"
+  }
+}
