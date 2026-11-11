@@ -7,6 +7,7 @@ Every variable has a local default, so the app starts without a .env file.
 import os
 from pathlib import Path
 
+import dj_database_url
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -79,6 +80,37 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+
+# Database. The default is the local compose database on its host port (5433);
+# containers and CI set DATABASE_URL explicitly.
+
+DATABASES = {
+    "default": dj_database_url.config(
+        env="DATABASE_URL",
+        default="postgres://taskboard:taskboard@localhost:5433/taskboard",
+    )
+}
+
+# Cache (also used by the DRF throttles from iteration 3)
+
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+    }
+}
+
+# Email: SMTP, pointing at Mailpit locally (web UI on http://localhost:8025)
+
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "localhost")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "1025"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=False)
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Team Task Board <noreply@localhost>")
 
 # Passwords
 
