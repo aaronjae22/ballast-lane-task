@@ -12,6 +12,33 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: taskboard
+          POSTGRES_USER: taskboard
+          POSTGRES_PASSWORD: taskboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskboard -d taskboard"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Set explicitly: the settings default points at the compose db's host port (5433).
+    env:
+      DATABASE_URL: postgres://taskboard:taskboard@localhost:5432/taskboard
+      REDIS_URL: redis://localhost:6379/0
     defaults:
       run:
         working-directory: backend
