@@ -14,7 +14,7 @@
 - **"Done" is a list of commands**, so success is something to verify, not something the agent claims.
 - **Plan and questions first.** Nothing is written until the plan, the resolved versions and the assumptions have been reviewed.
 - **Versions are checked, not recalled.** The agent resolves them with uv instead of trusting its memory.
-- **Checkpoints with approved commits.** The agent commits after each part, and every commit waits for my approval, so each one has been read by a person before it exists.
+- **Small PRs, tiny commits.** The plan splits the work into PRs of about 300 changed lines, each made of commits that do one thing and explain why. Every commit waits for my approval, so each one has been read by a person before it exists.
 
 ## The prompt
 
@@ -68,8 +68,14 @@ CONSTRAINTS
 
 HOW TO WORK
 
-1. Plan first. List the files you'll create, the dependency versions you resolved, and every question or assumption. Wait for my approval before writing files.
-2. Implement in three checkpoints and commit after each one (Conventional Commits; I'll approve each commit): (a) uv project, Django skeleton, settings, health endpoint and its tests; (b) Dockerfile, entrypoint and docker-compose.yml; (c) pre-commit with the hooks installed, CI, and the AGENTS.md Commands update.
+1. Plan first, and wait for my approval before writing files.
+   - Split the work into a sequence of small PRs. Each PR is one task of about 300 changed lines or fewer (not counting uv.lock and migrations), on its own branch named task/00-NN-short-name, created from an up-to-date main.
+   - Order the PRs so CI and pre-commit arrive early, and every later PR gets checked.
+   - For each PR, list its commits (Conventional Commits subject plus one line each) and the files in each commit. Also list the dependency versions you resolved and every question or assumption.
+2. Work one PR at a time:
+   - Tiny commits, one concern each, ideally under about 150 changed lines. Each commit body has 2–5 lines on why (the reason for each non-obvious choice), never a list of files. Before each commit, show git diff --staged --stat and a 2–3 line note on what the commit does; every commit waits for my approval.
+   - When a PR's commits are done, run the checks below that apply to it, then push the branch and open the PR against main with gh pr create, with a short title and a description with these sections: Summary (what and why), Commits (one line each), How to verify (commands and their results), Out of scope. The push and the PR both wait for my approval.
+   - Wait until I tell you the PR is merged. Then switch to main, pull, and start the next PR.
 3. Verify, and include the output of each command in your summary:
    - cd backend && uv run ruff check . && uv run ruff format --check .
    - cd backend && uv run lint-imports
