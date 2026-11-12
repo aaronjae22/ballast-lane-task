@@ -5,6 +5,7 @@ Every variable has a local default, so the app starts without a .env file.
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -169,6 +170,12 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Domain errors become HTTP here, and only here (spec section 4).
     "EXCEPTION_HANDLER": "tasks.api.exceptions.exception_handler",
+}
+
+# JWT (ADR 0006): a short-lived access token, kept in memory by the frontend.
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
 }
 
 # OpenAPI schema at /api/schema/, Swagger UI at /api/docs/ (ADRs 0005 and 0014). Both are
