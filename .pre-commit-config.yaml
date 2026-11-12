@@ -51,3 +51,20 @@ repos:
         language: system
         files: ^backend/(.*\.py|pyproject\.toml)$
         pass_filenames: false
+      # Frontend tools run from frontend/node_modules (npm ci there first), so pre-commit,
+      # the editor and CI use the versions in package-lock.json, as the uv hooks do.
+      # ESLint finds frontend/eslint.config.js from each file's directory. Prettier finds its
+      # config the same way, but reads an ignore file only from the working directory, so
+      # it's named here.
+      - id: eslint
+        name: eslint (frontend)
+        entry: frontend/node_modules/.bin/eslint --fix --max-warnings=0
+        language: system
+        types_or: [ts, tsx, javascript]
+        files: ^frontend/
+      - id: prettier
+        name: prettier (frontend)
+        entry: frontend/node_modules/.bin/prettier --write --ignore-unknown --ignore-path frontend/.prettierignore
+        language: system
+        types: [text]
+        files: ^frontend/
