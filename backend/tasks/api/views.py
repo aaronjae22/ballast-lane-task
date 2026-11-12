@@ -6,6 +6,7 @@ through tasks/api/wiring.py, and returns the task read back through visible_task
 and reads return the same shape (ADR 0014).
 """
 
+from collections.abc import Callable
 from typing import Any
 
 from django.db.models import BooleanField, ExpressionWrapper, QuerySet
@@ -16,12 +17,14 @@ from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from accounts.models import User
 from config.openapi import error_responses
 from tasks.api import wiring
 from tasks.api.filters import TaskFilter
 from tasks.api.pagination import TaskPagination
 from tasks.api.serializers import (
     AssignSerializer,
+    NoBodySerializer,
     TaskCreateSerializer,
     TaskSerializer,
     TaskUpdateSerializer,
@@ -30,6 +33,10 @@ from tasks.domain.errors import TaskNotFound
 from tasks.infrastructure.clock import DjangoClock
 from tasks.models import Task
 from tasks.selectors import overdue, visible_tasks
+
+# The owner, the assignee and admins may change status, so there's no 403: anyone else can't
+# see the task, which is a 404 (spec section 3).
+_STATUS_CHANGE_RESPONSES = {200: TaskSerializer, **error_responses(400, 401, 404, 409, 429)}
 
 
 class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
@@ -134,4 +141,47 @@ class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         body = AssignSerializer(data=request.data)
         body.is_valid(raise_exception=True)
         task = wiring.assign_task(request.user, pk, body.validated_data["assignee_id"])
+        return Response(self._read_back(task.id))
+
+    @extend_schema(
+        operation_id="tasks_start",
+        summary="Start a task",
+        description="to_do to in_progress. The owner, the assignee or an admin. No body.",
+        request=None,
+        responses=_STATUS_CHANGE_RESPONSES,
+    )
+    @action(detail=True, methods=["post"])
+    def start(self, request: Request, pk: int) -> Response:
+        return self._change_status(request, pk, wiring.start_task)
+
+    @extend_schema(
+        operation_id="tasks_complete",
+        summary="Complete a task",
+        description="to_do or in_progress to done, setting completed_at. The owner, the "
+        "assignee or an admin. No body.",
+        request=None,
+        responses=_STATUS_CHANGE_RESPONSES,
+    )
+    @action(detail=True, methods=["post"])
+    def complete(self, request: Request, pk: int) -> Response:
+        return self._change_status(request, pk, wiring.complete_task)
+
+    @extend_schema(
+        operation_id="tasks_reopen",
+        summary="Reopen a task",
+        description="done to to_do, clearing completed_at. The owner, the assignee or an "
+        "admin. No body.",
+        request=None,
+        responses=_STATUS_CHANGE_RESPONSES,
+    )
+    @action(detail=True, methods=["post"])
+    def reopen(self, request: Request, pk: int) -> Response:
+        return self._change_status(request, pk, wiring.reopen_task)
+
+    def _change_status(
+        self, request: Request, pk: int, change: Callable[[User, int], Task]
+    ) -> Response:
+        """One of the three transitions; one the status doesn't allow is a 409 (ADR 0004)."""
+        NoBodySerializer(data=request.data).is_valid(raise_exception=True)
+        task = change(request.user, pk)
         return Response(self._read_back(task.id))

@@ -105,3 +105,7 @@ class AssignSerializer(RejectUnknownFields):
         allow_null=True,
         help_text="An active user's id, from /api/users/, or null to unassign.",
     )
+
+
+class NoBodySerializer(RejectUnknownFields):
+    """start, complete and reopen take no body: any field sent is a 400, not ignored."""
