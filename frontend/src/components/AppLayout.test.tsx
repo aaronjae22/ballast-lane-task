@@ -62,7 +62,9 @@ describe('the navigation', () => {
 
   it('opens and closes with the burger on narrow screens', async () => {
     await signedInHome()
-    const burger = screen.getByRole('button', { name: 'Toggle navigation' })
+    // jsdom applies Mantine's hiddenFrom="sm" rule whatever the window width, so Testing
+    // Library counts the burger as hidden. On a narrow screen it's visible.
+    const burger = screen.getByRole('button', { name: 'Toggle navigation', hidden: true })
 
     expect(burger).toHaveAttribute('aria-expanded', 'false')
     await userEvent.click(burger)
