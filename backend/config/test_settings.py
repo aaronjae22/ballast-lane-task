@@ -11,6 +11,8 @@ import os
 os.environ.setdefault("DJANGO_SECRET_KEY", "test-only-not-a-secret")
 
 from config.settings import *  # noqa: F403
-from config.settings import CACHE_BACKENDS
+from config.settings import CACHE_BACKENDS, REST_FRAMEWORK
 
 CACHES = {"default": CACHE_BACKENDS["locmem"]}
+# The API parses JSON only, so the test client sends JSON unless told otherwise.
+REST_FRAMEWORK = {**REST_FRAMEWORK, "TEST_REQUEST_DEFAULT_FORMAT": "json"}

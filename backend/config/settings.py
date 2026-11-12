@@ -145,8 +145,9 @@ TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 
-# Django REST Framework: every endpoint requires a JWT unless it opts out
-# (only /api/health/ does in this iteration).
+# Django REST Framework: every endpoint requires a JWT and is throttled unless it opts out.
+# JSON only: no browsable API (it can't send a JWT), and no form parsers for a cross-site
+# form to post to (ADR 0014). Throttle rates are spec section 7's.
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -155,6 +156,16 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    # Anonymous requests count against both anon and user (by address); the stricter wins.
+    # The scoped throttle applies only to views that name a throttle_scope.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "30/min", "user": "120/min", "auth": "5/min"},
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
