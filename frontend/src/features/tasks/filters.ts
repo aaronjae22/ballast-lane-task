@@ -21,6 +21,9 @@ export interface TaskFilters {
   page: number
 }
 
+/** How many tasks a page holds. The list sends it, so it can count the pages. */
+export const pageSize = 20
+
 export const noFilters: TaskFilters = {
   status: [],
   due_after: null,
@@ -90,7 +93,7 @@ export function toSearchParams(filters: TaskFilters): URLSearchParams {
   const params = new URLSearchParams()
   for (const status of filters.status) params.append('status', status)
   for (const [name, value] of Object.entries(toApiQuery(filters))) {
-    if (name !== 'status') params.set(name, String(value))
+    if (name !== 'status' && name !== 'page_size') params.set(name, String(value))
   }
   return params
 }
@@ -106,6 +109,7 @@ export function toApiQuery(filters: TaskFilters): TaskListQuery {
   if (filters.search !== '') query.search = filters.search
   if (filters.ordering !== null) query.ordering = [filters.ordering]
   if (filters.page > 1) query.page = filters.page
+  query.page_size = pageSize
   return query
 }
 
