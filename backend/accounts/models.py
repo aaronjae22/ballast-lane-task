@@ -16,3 +16,11 @@ class User(AbstractUser):
         user to the domain's Actor. Staff, as for Django admin access and DRF's IsAdminUser.
         """
         return self.is_staff
+
+    @property
+    def display_name(self) -> str:
+        """How the user is shown: the full name, or the username if that's empty (ADR 0014).
+
+        The one definition, used by the users endpoints and by every task's owner and assignee.
+        """
+        return self.get_full_name() or self.username
