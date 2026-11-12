@@ -83,15 +83,13 @@ describe('useTaskFilters', () => {
     expect(router.state.historyAction).toBe('REPLACE')
   })
 
-  it('keeps both of two changes made before the page renders again', () => {
+  it('applies several changes at once, as Clear filters will', () => {
     signedIn()
     server.use(listTasks(aPage([])).handler)
-    const { latest, router } = renderList('/tasks')
+    const { latest, router } = renderList('/tasks?search=old&page=2')
 
     act(() => {
-      const { setFilters } = latest().filters
-      setFilters({ status: ['to_do'] })
-      setFilters({ assignee: 'me' })
+      latest().filters.setFilters({ status: ['to_do'], assignee: 'me', search: '' })
     })
 
     expect(router.state.location.search).toBe('?status=to_do&assignee=me')
