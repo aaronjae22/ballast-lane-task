@@ -22,6 +22,7 @@ ENV_VARS = [
     "DATABASE_URL",
     "REDIS_URL",
     "DJANGO_CACHE",
+    "DJANGO_REFRESH_COOKIE_SECURE",
     "EMAIL_HOST",
     "EMAIL_PORT",
     "EMAIL_HOST_USER",
@@ -96,6 +97,25 @@ def test_django_cache_redis_is_the_default(monkeypatch: pytest.MonkeyPatch) -> N
 def test_an_unknown_django_cache_is_refused(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
     with pytest.raises(ImproperlyConfigured, match="DJANGO_CACHE"):
         load_settings(monkeypatch, DJANGO_CACHE=value)
+
+
+@pytest.mark.parametrize(
+    ("env", "secure"),
+    [
+        ({}, True),
+        ({"DJANGO_DEBUG": "true"}, False),
+        ({"DJANGO_DEBUG": "true", "DJANGO_REFRESH_COOKIE_SECURE": "true"}, True),
+        ({"DJANGO_REFRESH_COOKIE_SECURE": "false"}, False),
+    ],
+    ids=["production", "local-development", "forced-on", "forced-off"],
+)
+def test_the_refresh_cookie_is_secure_outside_local_development(
+    monkeypatch: pytest.MonkeyPatch, env: dict[str, str], secure: bool
+) -> None:
+    """Local development is DEBUG on; the override is for the prod image over http (ADR 0014)."""
+    s = load_settings(monkeypatch, **env)
+
+    assert s.REFRESH_COOKIE_SECURE is secure
 
 
 def test_email_variables_override_smtp(monkeypatch: pytest.MonkeyPatch) -> None:

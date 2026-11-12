@@ -17,3 +17,5 @@ from config.settings import CACHE_BACKENDS, REST_FRAMEWORK
 CACHES = {"default": CACHE_BACKENDS["locmem"]}
 # The API parses JSON only, so the test client sends JSON unless told otherwise.
 REST_FRAMEWORK = {**REST_FRAMEWORK, "TEST_REQUEST_DEFAULT_FORMAT": "json"}
+# A deliberately fast hasher: the real one takes a third of a second per login on purpose.
+PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
