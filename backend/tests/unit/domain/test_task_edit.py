@@ -19,18 +19,11 @@ from tests.unit.builders import (
     YESTERDAY,
     make_task,
 )
+from tests.unit.overdue_cases import OVERDUE_CASES
 
 
 @pytest.mark.parametrize(
-    ("status", "due_date", "overdue"),
-    [
-        (Status.TO_DO, YESTERDAY, True),
-        (Status.IN_PROGRESS, YESTERDAY, True),
-        (Status.DONE, YESTERDAY, False),
-        (Status.TO_DO, TODAY, False),
-        (Status.TO_DO, None, False),
-    ],
-    ids=["to-do-due-yesterday", "in-progress-due-yesterday", "done", "due-today", "no-due-date"],
+    ("status", "due_date", "overdue"), list(OVERDUE_CASES.values()), ids=list(OVERDUE_CASES)
 )
 def test_a_task_is_overdue_when_its_due_date_has_passed_and_it_isnt_done(
     status: Status, due_date: date | None, overdue: bool
