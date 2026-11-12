@@ -10,7 +10,7 @@ from typing import Any
 
 from django.db.models import BooleanField, ExpressionWrapper, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import mixins, status, viewsets
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -102,3 +102,15 @@ class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         body.is_valid(raise_exception=True)
         task = wiring.update_task(request.user, pk, **body.validated_data)
         return Response(self._read_back(task.id))
+
+    @extend_schema(
+        summary="Delete a task",
+        description="The owner or an admin only. It's gone for good: there's no archive.",
+        responses={
+            204: OpenApiResponse(description="Deleted."),
+            **error_responses(401, 403, 404, 429),
+        },
+    )
+    def destroy(self, request: Request, pk: int) -> Response:
+        wiring.delete_task(request.user, pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
