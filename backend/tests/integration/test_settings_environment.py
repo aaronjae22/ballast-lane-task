@@ -6,6 +6,7 @@ and no database, Redis or SMTP server is contacted.
 """
 
 import importlib.util
+import tempfile
 from pathlib import Path
 from types import ModuleType
 
@@ -29,6 +30,7 @@ ENV_VARS = [
     "EMAIL_HOST_PASSWORD",
     "EMAIL_USE_TLS",
     "DEFAULT_FROM_EMAIL",
+    "CELERY_BEAT_SCHEDULE_FILENAME",
 ]
 
 
@@ -147,4 +149,17 @@ def test_allowed_hosts_and_time_zone_follow_the_environment(
 
     assert s.ALLOWED_HOSTS == ["api.example.com", "localhost"]
     assert s.TIME_ZONE == "America/New_York"
+    assert s.CELERY_TIMEZONE == "America/New_York"
     assert s.USE_TZ is True
+
+
+def test_beats_schedule_file_defaults_to_the_temp_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = load_settings(monkeypatch)
+
+    assert Path(s.CELERY_BEAT_SCHEDULE_FILENAME).parent == Path(tempfile.gettempdir())
+
+
+def test_beats_schedule_file_follows_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = load_settings(monkeypatch, CELERY_BEAT_SCHEDULE_FILENAME="/var/lib/beat/schedule")
+
+    assert s.CELERY_BEAT_SCHEDULE_FILENAME == "/var/lib/beat/schedule"
