@@ -52,6 +52,18 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # Healthy only once migrate has run and /api/health/ answers 200 (a 503 fails it).
+    # The slim image has no curl, so the check uses Python's standard library.
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health/', timeout=3)"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
   mailpit:
     image: axllent/mailpit:v1.33.1

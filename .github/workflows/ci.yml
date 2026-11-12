@@ -12,6 +12,33 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: taskboard
+          POSTGRES_USER: taskboard
+          POSTGRES_PASSWORD: taskboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskboard -d taskboard"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    # Set explicitly: the settings default points at the compose db's host port (5433).
+    env:
+      DATABASE_URL: postgres://taskboard:taskboard@localhost:5432/taskboard
+      REDIS_URL: redis://localhost:6379/0
     defaults:
       run:
         working-directory: backend
@@ -52,3 +79,27 @@ jobs:
 
       - name: Build the backend prod image
         run: docker build --target prod --tag taskboard-backend:ci backend/
+
+      # spec section 13: "docker compose up --build serves /api/health/". --wait
+      # blocks until the backend's healthcheck passes, and fails if a container
+      # exits (e.g. when the entrypoint's migrate fails).
+      - name: Start the compose stack
+        run: docker compose up --build --detach --wait --wait-timeout 180
+
+      - name: Check that /api/health/ is ok
+        run: |
+          body=$(curl --fail --silent --show-error --retry 10 --retry-all-errors \
+            --retry-delay 3 http://localhost:8000/api/health/)
+          echo "$body"
+          test "$body" = '{"status":"ok"}'
+
+      - name: Check that the entrypoint applied every migration
+        run: docker compose exec -T backend python manage.py migrate --check
+
+      - name: Show compose logs
+        if: failure()
+        run: docker compose logs
+
+      - name: Stop the compose stack
+        if: always()
+        run: docker compose down --volumes

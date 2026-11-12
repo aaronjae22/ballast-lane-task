@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "rest_framework",
+    "drf_spectacular",
     "accounts",
     "tasks",
 ]
@@ -104,6 +106,10 @@ CACHES = {
     }
 }
 
+# Celery: Redis is the broker (worker and beat arrive in iteration 4)
+
+CELERY_BROKER_URL = REDIS_URL
+
 # Email: SMTP, pointing at Mailpit locally (web UI on http://localhost:8025)
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -132,6 +138,19 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
+
+# Django REST Framework: every endpoint requires a JWT unless it opts out
+# (only /api/health/ does in this iteration).
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
 
 # Static files
 
