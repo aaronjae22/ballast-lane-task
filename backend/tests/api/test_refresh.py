@@ -3,6 +3,7 @@
 Every refresh rotates the cookie and blacklists the old token. A failed refresh is 401 and
 leaves the cookie alone: two refreshes sent with the same cookie race, and if the loser's
 response cleared the cookie after the winner set a new one, the user would be signed out.
+Without a cookie there is nothing to refresh, and that isn't an error: 204 (ADR 0016).
 """
 
 from datetime import timedelta
@@ -76,11 +77,23 @@ def test_a_token_already_rotated_is_refused_and_the_new_cookie_survives(
     assert_cookie_untouched(loser)
 
 
-def test_without_a_cookie_a_refresh_is_401(api_client: APIClient) -> None:
+@pytest.mark.parametrize("cookie", [None, ""], ids=["absent", "empty"])
+def test_without_a_cookie_a_refresh_is_204_with_no_body(
+    api_client: APIClient, cookie: str | None
+) -> None:
+    """Not signed in isn't an error (ADR 0016, amending 0014).
+
+    Every fresh visit and every reload after logout starts with this refresh, and a 401
+    would put a red line in the browser console on the login page each time.
+    """
+    if cookie is not None:
+        api_client.cookies[COOKIE] = cookie
+
     response = api_client.post(REFRESH_URL)
 
-    assert response.status_code == 401
-    assert response["WWW-Authenticate"].startswith("Bearer")
+    assert response.status_code == 204
+    assert response.content == b""
+    assert "WWW-Authenticate" not in response
     assert_cookie_untouched(response)
 
 
@@ -147,7 +160,7 @@ def test_a_form_post_is_refused(owner: User, api_client: APIClient) -> None:
 
 def test_refreshing_is_limited_like_any_anonymous_request(api_client: APIClient) -> None:
     for _ in range(30):
-        assert api_client.post(REFRESH_URL).status_code == 401
+        assert api_client.post(REFRESH_URL).status_code == 204
 
     response = api_client.post(REFRESH_URL)
 

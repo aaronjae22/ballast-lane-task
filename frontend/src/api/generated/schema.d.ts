@@ -55,7 +55,7 @@ export interface paths {
         put?: never;
         /**
          * Refresh the access token
-         * @description Reads the refresh_token cookie, which the browser sends by itself, and rotates it: the old token stops working. The refresh token is set as the httpOnly refresh_token cookie (Path=/api/auth/), never returned in the body. A failed refresh leaves the cookie as it was. No request body.
+         * @description Reads the refresh_token cookie, which the browser sends by itself, and rotates it: the old token stops working. The refresh token is set as the httpOnly refresh_token cookie (Path=/api/auth/), never returned in the body. A failed refresh leaves the cookie as it was. Without the cookie it's 204: not signed in. No request body.
          */
         post: operations["auth_token_refresh_create"];
         delete?: never;
@@ -472,6 +472,13 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AccessToken"];
                 };
+            };
+            /** @description No refresh_token cookie: not signed in. No body, no cookie set. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description No access token, or one that has expired or is otherwise invalid. */
             401: {
