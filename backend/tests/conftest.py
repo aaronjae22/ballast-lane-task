@@ -1,4 +1,4 @@
-"""Fixtures for integration tests: real users and tasks in the test database (Postgres)."""
+"""Fixtures shared by the integration and API tests: real users and tasks in the test database."""
 
 from collections.abc import Callable
 

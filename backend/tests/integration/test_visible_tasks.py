@@ -7,7 +7,7 @@ from accounts.models import User
 from tasks.domain.actor import Actor
 from tasks.domain.permissions import can_view
 from tasks.selectors import visible_tasks
-from tests.integration.conftest import StoreTask
+from tests.conftest import StoreTask
 from tests.unit.permission_matrix import ALLOWED, MATRIX, ROLES
 
 pytestmark = pytest.mark.django_db
