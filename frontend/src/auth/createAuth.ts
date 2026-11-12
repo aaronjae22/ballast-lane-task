@@ -1,5 +1,6 @@
-import type { ApiClient } from '../api/client'
-import type { Session } from './session'
+import { createAuthFetch } from '../api/authFetch'
+import { createApiClient, type ApiClient } from '../api/client'
+import { createSession, type Session } from './session'
 
 export interface Auth {
   session: Session
@@ -8,6 +9,10 @@ export interface Auth {
 }
 
 /** The page's session and API client, wired together. Created once, before React renders. */
-export function createAuth(_options: { baseUrl?: string } = {}): Auth {
-  throw new Error('not implemented')
+export function createAuth(options: { baseUrl?: string } = {}): Auth {
+  // The session talks to /api/auth/ through a plain client: a refresh must never trigger the
+  // 401 handling it is part of.
+  const session = createSession({ authClient: createApiClient(options) })
+  const api = createApiClient({ ...options, fetch: createAuthFetch({ session }) })
+  return { session, api }
 }
