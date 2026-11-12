@@ -15,7 +15,7 @@ import { server } from '../test/server'
 import { RouteError } from './RouteError'
 
 const loginHeading = { name: 'Log in' }
-const homeHeading = { name: 'Team Task Board' }
+const homeHeading = { name: 'Tasks' }
 
 describe('on page load', () => {
   it('sends exactly one refresh under StrictMode', async () => {
@@ -89,6 +89,42 @@ describe('later', () => {
 
     expect(await screen.findByRole('heading', loginHeading)).toBeInTheDocument()
     expect(queryClient.getQueryData(['users', 'me'])).toBeUndefined()
+  })
+})
+
+describe('the task routes', () => {
+  it('/ goes to the task list', async () => {
+    server.use(refreshAnswers('access-1').handler)
+
+    const { router } = renderApp({ path: '/' })
+
+    expect(await screen.findByRole('heading', { name: 'Tasks' })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/tasks')
+  })
+
+  // Opened directly, as from a shared link: each page loads lazily, without a console warning.
+  it.each([
+    ['/tasks', 'Tasks'],
+    ['/tasks/new', 'New task'],
+    ['/tasks/42', 'Task'],
+    ['/tasks/42/edit', 'Edit task'],
+  ])('%s shows its page', async (path, heading) => {
+    server.use(refreshAnswers('access-1').handler)
+
+    renderApp({ path })
+
+    expect(await screen.findByRole('heading', { name: heading })).toBeInTheDocument()
+  })
+
+  it('a signed-out link to a task goes to /login, remembering the task', async () => {
+    server.use(refreshAnswers(204).handler)
+
+    const { router } = renderApp({ path: '/tasks/42?from=email' })
+
+    expect(await screen.findByRole('heading', loginHeading)).toBeInTheDocument()
+    expect(router.state.location.state).toMatchObject({
+      from: { pathname: '/tasks/42', search: '?from=email' },
+    })
   })
 })
 

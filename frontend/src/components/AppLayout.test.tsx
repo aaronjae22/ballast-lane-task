@@ -14,7 +14,7 @@ function header() {
 async function signedInHome() {
   server.use(refreshAnswers('alice-token').handler, ...signedInAs())
   const app = renderApp()
-  await screen.findByRole('heading', { name: 'Team Task Board' })
+  await screen.findByRole('heading', { name: 'Tasks' })
   return app
 }
 
@@ -54,10 +54,12 @@ describe('the header', () => {
 })
 
 describe('the navigation', () => {
-  it('links to the home page', async () => {
+  it('links to the task list, marked as the current page', async () => {
     await signedInHome()
 
-    expect(screen.getByRole('link', { name: 'Home' })).toHaveAttribute('href', '/')
+    const link = screen.getByRole('link', { name: 'Tasks' })
+    expect(link).toHaveAttribute('href', '/tasks')
+    expect(link).toHaveAttribute('data-active', 'true')
   })
 
   it('opens and closes with the burger on narrow screens', async () => {

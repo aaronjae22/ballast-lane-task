@@ -7,7 +7,7 @@ import { loginFails, loginSucceeds, loginUnreachable, refreshAnswers } from '../
 import { renderApp } from '../test/render'
 import { server } from '../test/server'
 
-const homeHeading = { name: 'Team Task Board' }
+const homeHeading = { name: 'Tasks' }
 
 async function openLoginPage(path = '/login') {
   server.use(refreshAnswers(204).handler)
