@@ -70,6 +70,39 @@ jobs:
       - name: Test with coverage gate
         run: uv run pytest
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The Node version comes from .nvmrc, the same pin as local development (ADR 0016).
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ESLint with type information, then Prettier's check.
+      - name: Lint and check formatting
+        run: npm run lint
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
   docker:
     runs-on: ubuntu-latest
     steps:
