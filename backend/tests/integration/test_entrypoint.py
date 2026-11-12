@@ -1,8 +1,10 @@
-"""The container entrypoint migrates first and only then starts the command.
+"""The container entrypoint: migrate, then seed_demo on request, then the command.
 
-entrypoint.sh runs under sh with a fake `python` first on PATH, which records
-its arguments and exits with a chosen code, so no database or Docker is needed.
-The compose smoke test in CI covers the same script against real Postgres.
+Backend, worker and beat share the image, so only the backend migrates and seeds
+(ADR 0015): MIGRATE_ON_START=false turns migrate off, and SEED_DEMO=true turns the
+seed on. entrypoint.sh runs under sh with a fake `python` first on PATH, which
+records its arguments and exits with a chosen code per subcommand, so no database
+or Docker is needed. The compose smoke test in CI covers the same script for real.
 """
 
 import os
@@ -17,8 +19,14 @@ ENTRYPOINT = Path(__file__).resolve().parents[2] / "entrypoint.sh"
 
 FAKE_PYTHON = """#!/bin/sh
 echo "python $*" >> "$CALLS"
-exit "${MIGRATE_EXIT:-0}"
+case "$*" in
+  *seed_demo*) exit "${SEED_EXIT:-0}" ;;
+  *) exit "${MIGRATE_EXIT:-0}" ;;
+esac
 """
+
+MIGRATE = "python manage.py migrate --noinput"
+SEED = "python manage.py seed_demo"
 
 RECORD_COMMAND = ["sh", "-c", 'echo "command ran" >> "$CALLS"']
 
@@ -31,7 +39,10 @@ class Run:
     calls: list[str]
 
 
-def run_entrypoint(tmp_path: Path, command: list[str], migrate_exit: int = 0) -> Run:
+def run_entrypoint(
+    tmp_path: Path, command: list[str], migrate_exit: int = 0, **switches: str
+) -> Run:
+    """Run the script with only the given switches (SEED_DEMO, MIGRATE_ON_START, SEED_EXIT)."""
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     fake_python = bin_dir / "python"
@@ -40,8 +51,14 @@ def run_entrypoint(tmp_path: Path, command: list[str], migrate_exit: int = 0) ->
     calls = tmp_path / "calls.log"
     calls.touch()
 
+    inherited = {
+        name: value
+        for name, value in os.environ.items()
+        if name not in {"SEED_DEMO", "MIGRATE_ON_START"}
+    }
     env = {
-        **os.environ,
+        **inherited,
+        **switches,
         "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}",
         "CALLS": str(calls),
         "MIGRATE_EXIT": str(migrate_exit),
@@ -62,7 +79,7 @@ def test_migrations_run_before_the_command(tmp_path: Path) -> None:
     run = run_entrypoint(tmp_path, RECORD_COMMAND)
 
     assert run.returncode == 0, run.stderr
-    assert run.calls == ["python manage.py migrate --noinput", "command ran"]
+    assert run.calls == [MIGRATE, "command ran"]
 
 
 @pytest.mark.parametrize("migrate_exit", [1, 3])
@@ -72,7 +89,36 @@ def test_a_failed_migration_stops_the_command_from_starting(
     run = run_entrypoint(tmp_path, RECORD_COMMAND, migrate_exit=migrate_exit)
 
     assert run.returncode == migrate_exit
-    assert run.calls == ["python manage.py migrate --noinput"]
+    assert run.calls == [MIGRATE]
+
+
+def test_seed_demo_runs_after_migrate_when_asked(tmp_path: Path) -> None:
+    run = run_entrypoint(tmp_path, RECORD_COMMAND, SEED_DEMO="true")
+
+    assert run.returncode == 0, run.stderr
+    assert run.calls == [MIGRATE, SEED, "command ran"]
+
+
+@pytest.mark.parametrize("value", ["false", "", "1", "yes"])
+def test_only_the_literal_true_turns_the_seed_on(tmp_path: Path, value: str) -> None:
+    run = run_entrypoint(tmp_path, RECORD_COMMAND, SEED_DEMO=value)
+
+    assert run.calls == [MIGRATE, "command ran"]
+
+
+def test_a_failed_seed_stops_the_command_from_starting(tmp_path: Path) -> None:
+    run = run_entrypoint(tmp_path, RECORD_COMMAND, SEED_DEMO="true", SEED_EXIT="4")
+
+    assert run.returncode == 4
+    assert run.calls == [MIGRATE, SEED]
+
+
+def test_worker_and_beat_skip_migrate(tmp_path: Path) -> None:
+    """Only the backend migrates; the others start after it's healthy (ADR 0015)."""
+    run = run_entrypoint(tmp_path, RECORD_COMMAND, MIGRATE_ON_START="false")
+
+    assert run.returncode == 0, run.stderr
+    assert run.calls == ["command ran"]
 
 
 def test_the_command_replaces_the_shell(tmp_path: Path) -> None:
