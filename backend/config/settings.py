@@ -167,6 +167,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {"anon": "30/min", "user": "120/min", "auth": "5/min"},
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Domain errors become HTTP here, and only here (spec section 4).
+    "EXCEPTION_HANDLER": "tasks.api.exceptions.exception_handler",
 }
 
 # OpenAPI schema at /api/schema/, Swagger UI at /api/docs/ (ADRs 0005 and 0014). Both are
