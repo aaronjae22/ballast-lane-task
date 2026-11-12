@@ -14,3 +14,17 @@ export function isDay(text: string): boolean {
     date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
   )
 }
+
+// Formatted in UTC from a UTC midnight, so the browser's time zone never moves the day.
+const dayFormat = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'UTC',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+})
+
+/** A due date as people read it: "Nov 12, 2026", the same day in every time zone. */
+export function formatDay(day: string): string {
+  const [year, month, date] = day.split('-').map(Number) as [number, number, number]
+  return dayFormat.format(Date.UTC(year, month - 1, date))
+}

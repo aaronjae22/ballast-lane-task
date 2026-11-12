@@ -45,5 +45,8 @@ export default defineConfig({
     // busy machine. Half the cores runs the suite just as fast, with half the memory.
     maxWorkers: '50%',
     setupFiles: ['./src/test/setup.ts'],
+    // Behind UTC, so a due date turned into midnight UTC shows the day before and a test
+    // catches it (ADR 0018).
+    env: { TZ: 'America/Los_Angeles' },
   },
 })
