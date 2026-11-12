@@ -175,6 +175,59 @@ describe('logout', () => {
   })
 })
 
+describe('a login that answers after a logout', () => {
+  // Codex review of #46: the late answer must not undo the sign-out.
+  function delayedLogin() {
+    let release: () => void = () => undefined
+    const answered = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.post(apiUrl('/api/auth/token/'), async () => {
+        await answered
+        return HttpResponse.json({ access: 'late-access' })
+      }),
+    )
+    return () => {
+      release()
+    }
+  }
+
+  it('is discarded: no token, and the session stays anonymous', async () => {
+    const release = delayedLogin()
+    server.use(logoutSucceeds())
+    const session = newSession()
+
+    const login = session.login(credentials)
+    await session.logout()
+    release()
+    await login
+
+    expect(session.getAccessToken()).toBeNull()
+    expect(session.getState()).toEqual({ status: 'anonymous' })
+  })
+
+  it('has the refresh cookie it set revoked by another logout', async () => {
+    const release = delayedLogin()
+    const events: string[] = []
+    server.use(
+      http.post(apiUrl('/api/auth/logout/'), () => {
+        events.push('logout')
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    const session = newSession()
+
+    const login = session.login(credentials)
+    await session.logout()
+    events.push('login answered')
+    release()
+    await login
+
+    expect(events).toEqual(['logout', 'login answered', 'logout'])
+  })
+})
+
 describe('subscribe', () => {
   it('notifies on each status change until unsubscribed, with a stable state object', async () => {
     server.use(loginSucceeds(), logoutSucceeds())
