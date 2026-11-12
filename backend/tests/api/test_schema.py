@@ -202,3 +202,15 @@ def test_create_documents_its_own_body_and_answers(client: Client) -> None:
     assert set(create["responses"]) == {"201", "400", "401", "429"}
     assert set(component["properties"]) == {"title", "description", "due_date", "assignee_id"}
     assert component["required"] == ["title"]
+
+
+def test_edit_documents_its_own_body_and_answers_and_there_is_no_put(client: Client) -> None:
+    api = schema(client)
+    task = api["paths"]["/api/tasks/{id}/"]
+    body = task["patch"]["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    component = api["components"]["schemas"][body.rsplit("/", 1)[1]]
+
+    assert "put" not in task
+    assert set(task["patch"]["responses"]) == {"200", "400", "401", "403", "404", "429"}
+    assert set(component["properties"]) == {"title", "description", "due_date"}
+    assert "required" not in component
