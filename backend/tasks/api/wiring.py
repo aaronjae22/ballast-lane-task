@@ -23,7 +23,7 @@ from tasks.application.update_task import UpdateTask
 from tasks.domain.actor import Actor
 from tasks.domain.task import Task
 from tasks.infrastructure.clock import DjangoClock
-from tasks.infrastructure.notifications import LoggingNotifier
+from tasks.infrastructure.notifications import CeleryNotifier
 from tasks.infrastructure.repositories import DjangoTaskRepository
 from tasks.infrastructure.users import DjangoUserLookup
 
@@ -34,8 +34,8 @@ def actor_for(user: User) -> Actor:
 
 
 def notifier() -> Notifier:
-    """The assignment notifier. Iteration 4 changes this line to the Celery adapter."""
-    return LoggingNotifier()
+    """The assignment notifier: the email goes through Celery after the commit (ADR 0015)."""
+    return CeleryNotifier()
 
 
 @transaction.atomic
