@@ -42,7 +42,7 @@ export function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Navbar p="sm">
-        <NavItem to="/" label="Home" onNavigate={close} />
+        <NavItem to="/tasks" label="Tasks" onNavigate={close} />
       </AppShell.Navbar>
 
       <AppShell.Main>
@@ -52,8 +52,9 @@ export function AppLayout() {
   )
 }
 
+// Active on the page and everything under it: /tasks/42 is still in Tasks.
 function NavItem({ to, label, onNavigate }: { to: string; label: string; onNavigate: () => void }) {
-  const active = useMatch({ path: to, end: true }) !== null
+  const active = useMatch({ path: to, end: false }) !== null
   return <NavLink component={Link} to={to} label={label} active={active} onClick={onNavigate} />
 }
 
