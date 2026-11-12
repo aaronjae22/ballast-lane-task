@@ -95,16 +95,22 @@ DATABASES = {
     )
 }
 
-# Cache (also used by the DRF throttles from iteration 3)
+# Cache, which the DRF throttles store their counts in. Redis everywhere it runs (compose,
+# CI, production); DJANGO_CACHE=locmem is for a host without Redis. That cache lives in one
+# process, so its limits don't hold across processes: never use it in production (ADR 0014).
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-    }
+CACHE_BACKENDS = {
+    "redis": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL},
+    "locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
 }
+_cache = os.environ.get("DJANGO_CACHE") or "redis"
+if _cache not in CACHE_BACKENDS:
+    raise ImproperlyConfigured(
+        f"DJANGO_CACHE must be one of {', '.join(CACHE_BACKENDS)}, not {_cache!r}."
+    )
+CACHES = {"default": CACHE_BACKENDS[_cache]}
 
 # Celery: Redis is the broker (worker and beat arrive in iteration 4)
 
