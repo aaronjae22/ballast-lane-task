@@ -1,4 +1,4 @@
-import type { Client } from 'openapi-fetch'
+import createClient, { type Client } from 'openapi-fetch'
 import type { paths } from './generated/schema'
 
 /** The typed client for the whole API, generated from its OpenAPI schema. */
@@ -11,6 +11,9 @@ export interface ApiClientOptions {
   baseUrl?: string
 }
 
-export function createApiClient(_options: ApiClientOptions = {}): ApiClient {
-  throw new Error('not implemented')
+export function createApiClient(options: ApiClientOptions = {}): ApiClient {
+  // Not `fetch: globalThis.fetch`: that captures the function once, and MSW or a test stub
+  // that replaces the global afterwards would never see the request.
+  const send = options.fetch ?? ((request: Request) => globalThis.fetch(request))
+  return createClient<paths>({ baseUrl: options.baseUrl ?? window.location.origin, fetch: send })
 }
