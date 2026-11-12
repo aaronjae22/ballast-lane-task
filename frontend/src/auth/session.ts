@@ -3,6 +3,7 @@
 // token is the backend's httpOnly cookie, which JavaScript never sees.
 
 import type { ApiClient } from '../api/client'
+import { ApiError } from '../api/errors'
 import type { components } from '../api/generated/schema'
 
 export type LoginRequest = components['schemas']['LoginRequest']
@@ -17,14 +18,22 @@ export interface SessionState {
 /** Why a login failed, for the login form's message. */
 export type LoginFailure = 'invalid' | 'throttled' | 'unavailable'
 
+const loginMessages: Record<LoginFailure, string> = {
+  invalid: 'Wrong username or password.',
+  throttled: 'Too many login attempts.',
+  unavailable: "Can't reach the server.",
+}
+
 export class LoginError extends Error {
   readonly kind: LoginFailure
   /** Seconds to wait, from Retry-After, when the login was throttled. */
   readonly retryAfter: number | null
 
-  constructor(_kind: LoginFailure, _retryAfter: number | null = null) {
-    super('not implemented')
-    throw new Error('not implemented')
+  constructor(kind: LoginFailure, retryAfter: number | null = null) {
+    super(loginMessages[kind])
+    this.name = 'LoginError'
+    this.kind = kind
+    this.retryAfter = retryAfter
   }
 }
 
@@ -48,6 +57,63 @@ export interface SessionOptions {
   authClient: ApiClient
 }
 
-export function createSession(_options: SessionOptions): Session {
-  throw new Error('not implemented')
+export function createSession({ authClient }: SessionOptions): Session {
+  let state: SessionState = { status: 'restoring' }
+  let accessToken: string | null = null
+  let generation = 0
+  const listeners = new Set<() => void>()
+
+  function setStatus(status: AuthStatus): void {
+    if (state.status === status) return
+    state = { status }
+    for (const listener of listeners) listener()
+  }
+
+  return {
+    getState: () => state,
+
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+
+    getAccessToken: () => accessToken,
+
+    generation: () => generation,
+
+    async login(credentials) {
+      let result
+      try {
+        result = await authClient.POST('/api/auth/token/', { body: credentials })
+      } catch {
+        // fetch rejects only when no response came back: the server is down or unreachable.
+        throw new LoginError('unavailable')
+      }
+      if (result.data) {
+        accessToken = result.data.access
+        setStatus('authenticated')
+        return
+      }
+      const error = new ApiError(result.response, result.error)
+      // 400 is a missing field, which the form checks first; to the user it's the same.
+      if (error.status === 401 || error.status === 400) throw new LoginError('invalid')
+      if (error.status === 429) throw new LoginError('throttled', error.retryAfter)
+      throw new LoginError('unavailable')
+    },
+
+    async logout() {
+      // Signed out locally first: requests from now on carry no token, and anything that
+      // started before can tell from the generation (ADR 0016).
+      generation += 1
+      accessToken = null
+      try {
+        await authClient.POST('/api/auth/logout/')
+      } catch {
+        // Unreachable. The backend always answers 204 otherwise (ADR 0014).
+      }
+      setStatus('anonymous')
+    },
+  }
 }
