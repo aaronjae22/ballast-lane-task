@@ -1,6 +1,29 @@
 # Local stack: docker compose up --build
 # Runs without a .env file. .env.example documents the overrides compose reads.
-# Worker, beat (iteration 4) and frontend (iteration 5) services come later.
+# backend, worker and beat run the same image with different commands (ADR 0009). Only the
+# backend migrates and seeds: worker and beat set MIGRATE_ON_START=false and start once the
+# backend is healthy (ADR 0015). The frontend service comes in iteration 5.
+
+# Shared by every service built from the backend image.
+x-backend-env: &backend-env
+  # The local stack runs with DEBUG on, so the built-in secret key is accepted.
+  DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
+  DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
+  DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+  DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-UTC}
+  # Fixed to the compose services, so a host-oriented .env can't redirect them.
+  DATABASE_URL: postgres://${POSTGRES_USER:-taskboard}:${POSTGRES_PASSWORD:-taskboard}@db:5432/${POSTGRES_DB:-taskboard}
+  REDIS_URL: redis://redis:6379/0
+  EMAIL_HOST: mailpit
+  EMAIL_PORT: "1025"
+
+x-backend: &backend
+  build:
+    context: ./backend
+    target: dev
+  # The source is mounted for reload. Beat's schedule file goes to /tmp, not here (ADR 0015).
+  volumes:
+    - ./backend:/app
 
 services:
   db:
@@ -29,31 +52,21 @@ services:
       retries: 10
 
   backend:
-    build:
-      context: ./backend
-      target: dev
+    <<: *backend
     environment:
-      # The local stack runs with DEBUG on, so the built-in secret key is accepted.
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-true}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
-      DJANGO_TIME_ZONE: ${DJANGO_TIME_ZONE:-UTC}
-      # Fixed to the compose services, so a host-oriented .env can't redirect them.
-      DATABASE_URL: postgres://${POSTGRES_USER:-taskboard}:${POSTGRES_PASSWORD:-taskboard}@db:5432/${POSTGRES_DB:-taskboard}
-      REDIS_URL: redis://redis:6379/0
-      EMAIL_HOST: mailpit
-      EMAIL_PORT: "1025"
+      <<: *backend-env
+      # Demo users and tasks on startup (README). The password is for local use only.
+      SEED_DEMO: ${SEED_DEMO:-true}
+      SEED_DEMO_PASSWORD: ${SEED_DEMO_PASSWORD:-demo-password}
     ports:
       - "8000:8000"
-    volumes:
-      - ./backend:/app
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Healthy only once migrate has run and /api/health/ answers 200 (a 503 fails it).
-    # The slim image has no curl, so the check uses Python's standard library.
+    # Healthy only once migrate and the seed have run and /api/health/ answers 200 (a 503
+    # fails it). The slim image has no curl, so the check uses Python's standard library.
     healthcheck:
       test:
         - CMD
@@ -64,6 +77,35 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+  # Runs the jobs: the assignment email and the due-tomorrow digests. It doesn't reload on code
+  # changes: docker compose restart worker beat.
+  worker:
+    <<: *backend
+    command: ["celery", "-A", "config", "worker", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+      MIGRATE_ON_START: "false"
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+
+  # Queues the daily reminder at 08:00 in DJANGO_TIME_ZONE. Exactly one beat runs (ADR 0015).
+  beat:
+    <<: *backend
+    command: ["celery", "-A", "config", "beat", "--loglevel=info"]
+    environment:
+      <<: *backend-env
+      MIGRATE_ON_START: "false"
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   mailpit:
     image: axllent/mailpit:v1.33.1
