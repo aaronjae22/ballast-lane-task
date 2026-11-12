@@ -1,8 +1,13 @@
-"""How tasks appear in the API (ADR 0014).
+"""How tasks appear in the API, and what the write endpoints accept (ADRs 0012 and 0014).
 
-Read side only for now: the write serializers, which check the input's shape and nothing
-else, arrive with the write endpoints.
+The write serializers check only the input's shape: types, required fields, unknown fields.
+The rules (title length after trimming, no past due date, an active assignee) are the
+domain's. The use cases raise them as DomainValidationError, a 400 keyed by the same field
+names, so the two kinds of error look alike and there's only one copy of each rule.
 """
+
+from collections.abc import Mapping
+from typing import Any
 
 from rest_framework import serializers
 
@@ -36,3 +41,36 @@ class TaskSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = fields
+
+
+class RejectUnknownFields(serializers.Serializer):
+    """A field the endpoint doesn't take is a 400, not silently dropped (ADR 0014).
+
+    Otherwise PATCH {"status": "done"} would answer 200 and change nothing.
+    """
+
+    def to_internal_value(self, data: Any) -> dict[str, Any]:
+        if isinstance(data, Mapping) and (unknown := set(data) - set(self.fields)):
+            errors = {name: ["Unknown field."] for name in sorted(unknown)}
+            raise serializers.ValidationError(errors)
+        return super().to_internal_value(data)
+
+
+class TaskCreateSerializer(RejectUnknownFields):
+    """POST /api/tasks/. Fields left out get CreateTask's defaults."""
+
+    # No trimming or length limit here: the domain trims and then checks 1 to 200 (ADR 0012).
+    title = serializers.CharField(
+        trim_whitespace=False,
+        allow_blank=True,
+        help_text="1 to 200 characters. Surrounding spaces are removed first.",
+    )
+    description = serializers.CharField(required=False, trim_whitespace=False, allow_blank=True)
+    due_date = serializers.DateField(
+        required=False, allow_null=True, help_text="Today or later. null or left out: none."
+    )
+    assignee_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        help_text="An active user's id, from /api/users/. null or left out: unassigned.",
+    )
