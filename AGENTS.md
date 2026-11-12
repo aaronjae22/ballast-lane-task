@@ -35,7 +35,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Tests never need Redis, a worker or an SMTP server: jobs run in-process and mail goes to Django's in-memory outbox
 - Frontend (run from `frontend/`). Node is pinned in `frontend/.nvmrc`: run `nvm use` first (`npm ci` refuses another Node version)
   - Install: `npm ci`
-  - Dev server: `npm run dev` (http://localhost:5173)
+  - Dev server: `npm run dev` (http://localhost:5173). It proxies `/api` to `API_PROXY_TARGET` (default `http://localhost:8000`, so start the backend's runserver first)
   - Type check: `npm run typecheck`. Build: `npm run build`
   - Lint and format check: `npm run lint` (ESLint with type information, then `prettier --check`). Format: `npm run format`
   - Tests: `npm test` (Vitest, once) or `npm run test:watch`. A test fails if it logs a console warning or error it didn't declare with `expectConsole`
