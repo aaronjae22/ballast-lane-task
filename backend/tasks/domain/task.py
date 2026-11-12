@@ -5,7 +5,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Self
 
-from tasks.domain.errors import DomainValidationError
+from tasks.domain.errors import DomainValidationError, InvalidTransition
 from tasks.domain.status import Status
 
 TITLE_MAX_LENGTH = 200
@@ -18,6 +18,13 @@ class Unset(Enum):
 
 
 UNSET = Unset.UNSET
+
+# Spec section 3, "Status transitions": action -> (statuses it's allowed from, new status).
+_TRANSITIONS: dict[str, tuple[frozenset[Status], Status]] = {
+    "start": (frozenset({Status.TO_DO}), Status.IN_PROGRESS),
+    "complete": (frozenset({Status.TO_DO, Status.IN_PROGRESS}), Status.DONE),
+    "reopen": (frozenset({Status.DONE}), Status.TO_DO),
+}
 
 
 @dataclass(kw_only=True, slots=True)
@@ -97,6 +104,25 @@ class Task:
         if new_due_date != self.due_date:
             _check_due_date(new_due_date, today)
         self.title, self.description, self.due_date = new_title, new_description, new_due_date
+        self.updated_at = now
+
+    def start(self, *, now: datetime) -> None:
+        self._transition("start", now)
+
+    def complete(self, *, now: datetime) -> None:
+        self._transition("complete", now)
+        self.completed_at = now
+
+    def reopen(self, *, now: datetime) -> None:
+        self._transition("reopen", now)
+        self.completed_at = None
+
+    def _transition(self, action: str, now: datetime) -> None:
+        """Move to the action's new status, or raise InvalidTransition and change nothing."""
+        allowed_from, new_status = _TRANSITIONS[action]
+        if self.status not in allowed_from:
+            raise InvalidTransition(action, self.status)
+        self.status = new_status
         self.updated_at = now
 
 
