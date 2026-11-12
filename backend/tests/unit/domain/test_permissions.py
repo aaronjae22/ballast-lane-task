@@ -47,7 +47,7 @@ def test_every_action_in_the_matrix_is_a_domain_action() -> None:
 
 
 @pytest.mark.parametrize(
-    ("role", "outcome"), zip(ROLES, MATRIX["view"], strict=True), ids=list(ROLES)
+    ("role", "outcome"), list(zip(ROLES, MATRIX["view"], strict=True)), ids=list(ROLES)
 )
 def test_can_view_matches_the_view_row(role: str, outcome: str) -> None:
     task = make_task(owner_id=OWNER_ID, assignee_id=ASSIGNEE_ID)
