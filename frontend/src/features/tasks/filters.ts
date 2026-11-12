@@ -21,6 +21,9 @@ export interface TaskFilters {
   page: number
 }
 
+/** How many tasks a page holds. The list sends it, so it can count the pages. */
+export const pageSize = 0
+
 export const noFilters: TaskFilters = {
   status: [],
   due_after: null,

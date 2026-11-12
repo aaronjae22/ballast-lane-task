@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   changeFilters,
   noFilters,
+  pageSize,
   parseTaskFilters,
   toApiQuery,
   toSearchParams,
@@ -103,6 +104,10 @@ describe('toSearchParams', () => {
     expect(toSearchParams(noFilters).toString()).toBe('')
     expect(toSearchParams({ ...noFilters, page: 1 }).toString()).toBe('')
   })
+
+  it('leaves the page size out: the list chooses it, not the link', () => {
+    expect(toSearchParams(everything).has('page_size')).toBe(false)
+  })
 })
 
 describe('toApiQuery', () => {
@@ -116,12 +121,16 @@ describe('toApiQuery', () => {
       search: 'invoice',
       ordering: ['-due_date'],
       page: 3,
+      page_size: pageSize,
     })
   })
 
-  it('sends a user id as text, and nothing for the defaults', () => {
-    expect(toApiQuery({ ...noFilters, assignee: 7 })).toEqual({ assignee: '7' })
-    expect(toApiQuery(noFilters)).toEqual({})
+  it('sends a user id as text, and nothing for the defaults but the page size', () => {
+    expect(toApiQuery({ ...noFilters, assignee: 7 })).toEqual({
+      assignee: '7',
+      page_size: pageSize,
+    })
+    expect(toApiQuery(noFilters)).toEqual({ page_size: pageSize })
   })
 })
 
