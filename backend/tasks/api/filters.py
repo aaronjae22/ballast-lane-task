@@ -21,6 +21,10 @@ from tasks.models import STATUS_CHOICES, Task
 ME = "me"
 # Overdue's "not done", spelled as the statuses it covers so (status, due_date) can serve it.
 _NOT_DONE = [status.value for status in Status if status is not Status.DONE]
+# User ids are BigAutoField. Checking the length first keeps a huge string away from int(),
+# which refuses more than 4,300 digits with a ValueError instead of a form error.
+_LARGEST_USER_ID = 2**63 - 1
+_MAX_ID_DIGITS = len(str(_LARGEST_USER_ID))
 
 
 class _MultipleChoiceIgnoringBlanks(fields.MultipleChoiceField):
@@ -35,7 +39,7 @@ class _StatusFilter(filters.MultipleChoiceFilter):
 
 
 class _AssigneeField(forms.CharField):
-    """Exactly "me", or a positive user id as an int. Empty means no filter."""
+    """Exactly "me", or an int that can be a user id. Empty means no filter."""
 
     def to_python(self, value: str | None) -> str | int | None:
         text = super().to_python(value)
@@ -43,7 +47,12 @@ class _AssigneeField(forms.CharField):
             return None
         if text == ME:
             return ME
-        if text.isascii() and text.isdigit() and int(text) > 0:
+        if (
+            text.isascii()
+            and text.isdigit()
+            and len(text) <= _MAX_ID_DIGITS
+            and 0 < int(text) <= _LARGEST_USER_ID
+        ):
             return int(text)
         raise forms.ValidationError('Use "me" or a user id.', code="invalid")
 
