@@ -172,11 +172,18 @@ REST_FRAMEWORK = {
     "EXCEPTION_HANDLER": "tasks.api.exceptions.exception_handler",
 }
 
-# JWT (ADR 0006): a short-lived access token, kept in memory by the frontend.
+# JWT (ADRs 0006 and 0014): a short-lived access token, kept in memory by the frontend, and
+# a refresh token in an httpOnly cookie that only /api/auth/ receives. The cookie is Secure
+# outside local development (DEBUG off); the override is for the prod image over plain http.
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+REFRESH_COOKIE_NAME = "refresh_token"
+REFRESH_COOKIE_PATH = "/api/auth/"
+REFRESH_COOKIE_SECURE = env_bool("DJANGO_REFRESH_COOKIE_SECURE", default=not DEBUG)
 
 # OpenAPI schema at /api/schema/, Swagger UI at /api/docs/ (ADRs 0005 and 0014). Both are
 # public. Swagger UI is pinned rather than @latest, and persistAuthorization stays off: it
@@ -186,7 +193,10 @@ SWAGGER_UI_DIST = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.1"
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Team Task Board API",
-    "DESCRIPTION": "Tasks for a small team: create, assign and track them to done.",
+    "DESCRIPTION": (
+        "Tasks for a small team: create, assign and track them to done. To try it here, log "
+        "in with POST /api/auth/token/, then paste the access token into Authorize."
+    ),
     "VERSION": "0.1.0",
     "SCHEMA_PATH_PREFIX": "/api/",
     # The schema describes the API, not itself.
