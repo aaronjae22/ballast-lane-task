@@ -22,5 +22,9 @@ export default defineConfig([
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
+    rules: {
+      // A leading underscore marks a parameter that's deliberately unused, as tsc allows.
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
   },
 ])

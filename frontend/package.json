@@ -21,6 +21,7 @@
   "dependencies": {
     "@mantine/core": "^9.8.0",
     "@mantine/hooks": "^9.8.0",
+    "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -36,6 +37,7 @@
     "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "jsdom": "^31.0.0",
+    "msw": "^3.0.5",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.10.1",
     "typescript": "~5.9.3",
