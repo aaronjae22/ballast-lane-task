@@ -25,6 +25,7 @@ _DESCRIPTIONS = {
     403: "You can see the task but may not do this to it.",
     404: "No such task, or one you can't see.",
     409: "The task's status doesn't allow this action.",
+    415: "The body isn't JSON. The API reads JSON only, so an HTML form can't post to it.",
     429: "Too many requests. The Retry-After header says how many seconds to wait.",
 }
 

@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
+    # Records refresh tokens, so a rotated or logged-out one is refused (ADR 0006).
+    "rest_framework_simplejwt.token_blacklist",
     "accounts",
     "tasks",
 ]
@@ -179,6 +181,9 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    # Every refresh issues a new refresh token, valid for another day, and refuses the old one.
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 }
 
 REFRESH_COOKIE_NAME = "refresh_token"

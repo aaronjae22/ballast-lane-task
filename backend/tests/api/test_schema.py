@@ -105,3 +105,23 @@ def test_login_documents_its_body_its_answers_and_no_token(client: Client) -> No
     # The refresh token goes into the cookie, never into the documented body.
     assert set(api["components"]["schemas"][body.rsplit("/", 1)[1]]["properties"]) == {"access"}
     assert {"jwtAuth": []} not in login.get("security", [])
+
+
+def test_refresh_documents_an_access_only_body_and_no_token(client: Client) -> None:
+    api = schema(client)
+    refresh = api["paths"]["/api/auth/token/refresh/"]["post"]
+    body = refresh["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+
+    assert set(refresh["responses"]) == {"200", "401", "415", "429"}
+    assert "requestBody" not in refresh
+    assert set(api["components"]["schemas"][body.rsplit("/", 1)[1]]["properties"]) == {"access"}
+    assert {"jwtAuth": []} not in refresh.get("security", [])
+
+
+def test_logout_documents_its_empty_answer_and_no_token(client: Client) -> None:
+    logout = schema(client)["paths"]["/api/auth/logout/"]["post"]
+
+    assert set(logout["responses"]) == {"204", "415", "429"}
+    assert "content" not in logout["responses"]["204"]
+    assert "requestBody" not in logout
+    assert {"jwtAuth": []} not in logout.get("security", [])
