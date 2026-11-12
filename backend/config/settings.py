@@ -115,9 +115,14 @@ if _cache not in CACHE_BACKENDS:
     )
 CACHES = {"default": CACHE_BACKENDS[_cache]}
 
-# Celery: Redis is the broker (worker and beat arrive in iteration 4)
+# Celery: Redis is the broker (ADR 0015). Jobs take ids and ISO dates, so JSON is enough;
+# there's no result backend, so results are dropped. The worker waits for Redis on startup.
 
 CELERY_BROKER_URL = REDIS_URL
+CELERY_TASK_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # Email: SMTP, pointing at Mailpit locally (web UI on http://localhost:8025)
 
@@ -127,6 +132,8 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "1025"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = env_bool("EMAIL_USE_TLS", default=False)
+# Seconds. A hung SMTP server fails the send (and its retry) instead of holding a worker.
+EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "Team Task Board <noreply@localhost>")
 
 # Users and passwords
@@ -147,6 +154,8 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
+# Beat reads its schedule in the same zone as the Clock's today (ADR 0012).
+CELERY_TIMEZONE = TIME_ZONE
 
 # Django REST Framework: every endpoint requires a JWT and is throttled unless it opts out.
 # JSON only: no browsable API (it can't send a JWT), and no form parsers for a cross-site
