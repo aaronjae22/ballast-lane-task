@@ -15,6 +15,12 @@ export interface SessionState {
   readonly status: AuthStatus
 }
 
+/**
+ * How a refresh ended. `rejected`: there's no session (no cookie, or a cookie the backend
+ * refused twice). `unavailable`: the backend couldn't answer (network error, 5xx or 429).
+ */
+export type RefreshOutcome = 'refreshed' | 'rejected' | 'unavailable'
+
 /** Why a login failed, for the login form's message. */
 export type LoginFailure = 'invalid' | 'throttled' | 'unavailable'
 
@@ -53,6 +59,21 @@ export interface Session {
   login(credentials: LoginRequest): Promise<void>
   /** Signs out locally whatever the backend answers, then the status is `anonymous`. */
   logout(): Promise<void>
+  /**
+   * The silent refresh on page load. Memoized for the session's lifetime: a second call (React
+   * StrictMode runs effects twice) gets the same promise, not a second request. Sets the
+   * status to `authenticated`, `anonymous` or `unavailable`.
+   */
+  restore(): Promise<RefreshOutcome>
+  /** Tries the restore again after `unavailable`. The status is `restoring` meanwhile. */
+  retryRestore(): Promise<RefreshOutcome>
+  /**
+   * A new access token from the refresh cookie. One at a time: callers that arrive while a
+   * refresh is in flight share its result (ADR 0014). A 401 is retried once, because another
+   * tab may have just rotated the cookie. `rejected` signs out; `unavailable` keeps the
+   * session.
+   */
+  refresh(): Promise<RefreshOutcome>
 }
 
 export interface SessionOptions {
@@ -83,6 +104,10 @@ export function createSession({ authClient }: SessionOptions): Session {
   }
 
   return {
+    restore: () => Promise.reject(new Error('not implemented')),
+    retryRestore: () => Promise.reject(new Error('not implemented')),
+    refresh: () => Promise.reject(new Error('not implemented')),
+
     getState: () => state,
 
     subscribe(listener) {
