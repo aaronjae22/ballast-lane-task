@@ -15,7 +15,7 @@ from accounts.models import User
 from tasks.api.filters import TaskFilter
 from tasks.domain.status import Status
 from tasks.selectors import visible_tasks
-from tests.integration.conftest import StoreTask
+from tests.conftest import StoreTask
 from tests.unit.builders import NOW, TODAY, TOMORROW, YESTERDAY
 from tests.unit.fakes import FixedClock
 from tests.unit.overdue_cases import OVERDUE_CASES

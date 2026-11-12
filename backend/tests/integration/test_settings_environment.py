@@ -10,6 +10,7 @@ from pathlib import Path
 from types import ModuleType
 
 import pytest
+from django.core.exceptions import ImproperlyConfigured
 
 SETTINGS_PATH = Path(__file__).resolve().parents[2] / "config" / "settings.py"
 
@@ -20,6 +21,7 @@ ENV_VARS = [
     "DJANGO_TIME_ZONE",
     "DATABASE_URL",
     "REDIS_URL",
+    "DJANGO_CACHE",
     "EMAIL_HOST",
     "EMAIL_PORT",
     "EMAIL_HOST_USER",
@@ -73,6 +75,27 @@ def test_redis_url_overrides_the_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     s = load_settings(monkeypatch, REDIS_URL="redis://cache.internal:6380/2")
 
     assert s.CACHES["default"]["LOCATION"] == "redis://cache.internal:6380/2"
+
+
+def test_django_cache_locmem_swaps_redis_for_a_local_memory_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """For a host without Redis. Per process, so limits don't hold across processes."""
+    s = load_settings(monkeypatch, DJANGO_CACHE="locmem")
+
+    assert s.CACHES["default"]["BACKEND"] == "django.core.cache.backends.locmem.LocMemCache"
+
+
+def test_django_cache_redis_is_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    s = load_settings(monkeypatch, DJANGO_CACHE="redis")
+
+    assert s.CACHES["default"]["BACKEND"] == "django.core.cache.backends.redis.RedisCache"
+
+
+@pytest.mark.parametrize("value", ["memcached", "LocMem", "dummy"])
+def test_an_unknown_django_cache_is_refused(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    with pytest.raises(ImproperlyConfigured, match="DJANGO_CACHE"):
+        load_settings(monkeypatch, DJANGO_CACHE=value)
 
 
 def test_email_variables_override_smtp(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -59,3 +59,15 @@ def test_health_is_documented_with_both_answers(client: Client) -> None:
     responses = schema(client)["paths"]["/api/health/"]["get"]["responses"]
 
     assert set(responses) == {"200", "503"}
+
+
+@pytest.mark.parametrize("url", [SCHEMA_URL, DOCS_URL])
+def test_the_schema_and_docs_are_throttled_as_anonymous(client: Client, url: str) -> None:
+    anonymous_limit = 30
+    for _ in range(anonymous_limit):
+        assert client.get(url).status_code == 200
+
+    response = client.get(url)
+
+    assert response.status_code == 429
+    assert int(response["Retry-After"]) > 0

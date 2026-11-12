@@ -95,16 +95,22 @@ DATABASES = {
     )
 }
 
-# Cache (also used by the DRF throttles from iteration 3)
+# Cache, which the DRF throttles store their counts in. Redis everywhere it runs (compose,
+# CI, production); DJANGO_CACHE=locmem is for a host without Redis. That cache lives in one
+# process, so its limits don't hold across processes: never use it in production (ADR 0014).
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": REDIS_URL,
-    }
+CACHE_BACKENDS = {
+    "redis": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": REDIS_URL},
+    "locmem": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
 }
+_cache = os.environ.get("DJANGO_CACHE") or "redis"
+if _cache not in CACHE_BACKENDS:
+    raise ImproperlyConfigured(
+        f"DJANGO_CACHE must be one of {', '.join(CACHE_BACKENDS)}, not {_cache!r}."
+    )
+CACHES = {"default": CACHE_BACKENDS[_cache]}
 
 # Celery: Redis is the broker (worker and beat arrive in iteration 4)
 
@@ -139,8 +145,9 @@ TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "UTC")
 USE_I18N = True
 USE_TZ = True
 
-# Django REST Framework: every endpoint requires a JWT unless it opts out
-# (only /api/health/ does in this iteration).
+# Django REST Framework: every endpoint requires a JWT and is throttled unless it opts out.
+# JSON only: no browsable API (it can't send a JWT), and no form parsers for a cross-site
+# form to post to (ADR 0014). Throttle rates are spec section 7's.
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -149,6 +156,16 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
+    # Anonymous requests count against both anon and user (by address); the stricter wins.
+    # The scoped throttle applies only to views that name a throttle_scope.
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {"anon": "30/min", "user": "120/min", "auth": "5/min"},
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 

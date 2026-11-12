@@ -25,7 +25,7 @@ from tasks.domain.task import Task
 from tasks.infrastructure.clock import DjangoClock
 from tasks.infrastructure.repositories import DjangoTaskRepository
 from tasks.infrastructure.users import DjangoUserLookup
-from tests.integration.conftest import MakeUser
+from tests.conftest import MakeUser
 from tests.unit.fakes import RecordingNotifier
 
 pytestmark = pytest.mark.django_db

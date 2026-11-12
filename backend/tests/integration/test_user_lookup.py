@@ -5,7 +5,7 @@ from django.db.models import Max
 
 from accounts.models import User
 from tasks.infrastructure.users import DjangoUserLookup
-from tests.integration.conftest import MakeUser
+from tests.conftest import MakeUser
 
 pytestmark = pytest.mark.django_db
 

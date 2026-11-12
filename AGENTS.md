@@ -24,7 +24,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Tests: `uv run pytest`. Database tests need Postgres: start the compose db first (`docker compose up -d db`, host port 5433), or set `DATABASE_URL`
   - Lint and format: `uv run ruff check .` and `uv run ruff format .` (CI runs `uv run ruff format --check .`)
   - Architecture contracts: `uv run lint-imports`
-  - Django: `DJANGO_DEBUG=true uv run python manage.py <command>` (with DEBUG off, the settings refuse the built-in secret key; set `DJANGO_SECRET_KEY` instead)
+  - Django: `DJANGO_DEBUG=true uv run python manage.py <command>` (with DEBUG off, the settings refuse the built-in secret key; set `DJANGO_SECRET_KEY` instead). On a host without Redis, add `DJANGO_CACHE=locmem`: the throttles need a cache
 - Frontend (run from `frontend/`, from iteration 5): `npm ci`, `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run gen:api`
 - pre-commit (from the repo root; needs `uv sync` in `backend/` first):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
