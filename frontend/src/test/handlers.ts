@@ -56,7 +56,17 @@ export function refreshAnswers(...answers: (number | string)[]) {
 export const users = {
   alice: { id: 1, username: 'alice', name: 'Alice Johnson', is_admin: false },
   bob: { id: 2, username: 'bob', name: 'Bob Smith', is_admin: false },
+  carol: { id: 3, username: 'carol', name: 'Carol Diaz', is_admin: false },
 } satisfies Record<string, Schemas['CurrentUser']>
+
+/** /api/users/: the active users as {id, name}, ordered by username as the API orders them. */
+export function activeUsers(list = Object.values(users)) {
+  return http.get(apiUrl('/api/users/'), () =>
+    HttpResponse.json(
+      list.map(({ id, name }) => ({ id, name })) satisfies Schemas['UserSummary'][],
+    ),
+  )
+}
 
 /**
  * A small fake of the real auth flow for whole-app tests: logging in as `alice` or `bob`
