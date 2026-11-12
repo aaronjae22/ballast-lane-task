@@ -34,6 +34,11 @@ def test_auth_user_model_is_the_custom_user() -> None:
     assert get_user_model() is User
 
 
+def test_tests_run_on_a_local_memory_cache() -> None:
+    """Tests empty the cache to reset the throttles, which must never flush a real Redis."""
+    assert settings.CACHES["default"]["BACKEND"] == "django.core.cache.backends.locmem.LocMemCache"
+
+
 def test_insecure_default_secret_key_is_refused_when_debug_is_off() -> None:
     result = import_base_settings()
 
