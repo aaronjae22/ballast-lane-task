@@ -141,7 +141,11 @@ def test_an_edit_runs_in_its_own_transaction(
 def test_a_task_deleted_between_loading_and_saving_is_404(
     owner: User, task: Task, client_for: ClientFor
 ) -> None:
-    """The repository's save() never inserts, and raises TaskNotFound for a row that's gone."""
+    """The repository's save() never inserts, and raises TaskNotFound for a row that's gone.
+
+    The row is deleted inside the edit's own transaction, so the 404 rolls that back too and
+    the task is left as it was. A real concurrent delete would wait on get()'s row lock.
+    """
     real_get = DjangoTaskRepository.get
 
     def get_then_lose_the_row(repository: DjangoTaskRepository, task_id: int) -> Task | None:
@@ -154,7 +158,7 @@ def test_a_task_deleted_between_loading_and_saving_is_404(
 
     assert response.status_code == 404
     assert response.json() == {"detail": f"Task {task.id} not found."}
-    assert not models.Task.objects.filter(pk=task.id).exists()
+    assert models.Task.objects.get(pk=task.id).title == "Write the spec"
 
 
 def test_editing_needs_a_token(task: Task, api_client: APIClient) -> None:
