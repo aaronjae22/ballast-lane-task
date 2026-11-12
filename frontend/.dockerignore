@@ -1,0 +1,10 @@
+# Keep the build context small and free of local state. node_modules especially: the image
+# installs its own Linux builds, and the host's may be macOS ones.
+node_modules/
+dist/
+coverage/
+*.log
+.env
+.env.*
+Dockerfile
+.dockerignore
