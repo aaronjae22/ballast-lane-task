@@ -12,6 +12,7 @@ from django.db.models import BooleanField, ExpressionWrapper, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -19,7 +20,12 @@ from config.openapi import error_responses
 from tasks.api import wiring
 from tasks.api.filters import TaskFilter
 from tasks.api.pagination import TaskPagination
-from tasks.api.serializers import TaskCreateSerializer, TaskSerializer, TaskUpdateSerializer
+from tasks.api.serializers import (
+    AssignSerializer,
+    TaskCreateSerializer,
+    TaskSerializer,
+    TaskUpdateSerializer,
+)
 from tasks.domain.errors import TaskNotFound
 from tasks.infrastructure.clock import DjangoClock
 from tasks.models import Task
@@ -114,3 +120,18 @@ class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     def destroy(self, request: Request, pk: int) -> Response:
         wiring.delete_task(request.user, pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @extend_schema(
+        operation_id="tasks_assign",
+        summary="Assign, reassign or unassign a task",
+        description="The owner or an admin only. The new assignee is notified, unless it's you "
+        "or the task's assignee already.",
+        request=AssignSerializer,
+        responses={200: TaskSerializer, **error_responses(400, 401, 403, 404, 429)},
+    )
+    @action(detail=True, methods=["post"])
+    def assign(self, request: Request, pk: int) -> Response:
+        body = AssignSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        task = wiring.assign_task(request.user, pk, body.validated_data["assignee_id"])
+        return Response(self._read_back(task.id))
