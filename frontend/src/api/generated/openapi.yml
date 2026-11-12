@@ -1,0 +1,987 @@
+openapi: 3.0.3
+info:
+  title: Team Task Board API
+  version: 0.1.0
+  description: 'Tasks for a small team: create, assign and track them to done. To
+    try it here, log in with POST /api/auth/token/, then paste the access token into
+    Authorize.'
+paths:
+  /api/auth/logout/:
+    post:
+      operationId: auth_logout_create
+      description: Revokes the refresh token in the refresh_token cookie and clears
+        the cookie. Always 204, even without a valid cookie. No request body.
+      summary: Log out
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '204':
+          description: Signed out.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: The body isn't JSON. The API reads JSON only, so an HTML form
+            can't post to it.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: Exchange a username and password for an access token. The refresh
+        token is set as the httpOnly refresh_token cookie (Path=/api/auth/), never
+        returned in the body. A wrong password, an unknown user and an inactive user
+        all get the same 401.
+      summary: Log in
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+          description: The refresh token is set as the httpOnly refresh_token cookie
+            (Path=/api/auth/), never returned in the body.
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: 'Reads the refresh_token cookie, which the browser sends by itself,
+        and rotates it: the old token stops working. The refresh token is set as the
+        httpOnly refresh_token cookie (Path=/api/auth/), never returned in the body.
+        A failed refresh leaves the cookie as it was. No request body.'
+      summary: Refresh the access token
+      tags:
+      - auth
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessToken'
+          description: The refresh token is set as the httpOnly refresh_token cookie
+            (Path=/api/auth/), never returned in the body.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '415':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: The body isn't JSON. The API reads JSON only, so an HTML form
+            can't post to it.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/health/:
+    get:
+      operationId: health_retrieve
+      description: 'Liveness for Docker and Cloud Run: 200 if the database answers,
+        else 503.'
+      tags:
+      - health
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: 'The database answers: {"status": "ok"}.'
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: 'It doesn''t: {"status": "unavailable"}.'
+  /api/tasks/:
+    get:
+      operationId: tasks_list
+      description: The tasks you own or are assigned to (every task, for an admin),
+        a page at a time, filtered and ordered by the query parameters.
+      summary: List tasks
+      parameters:
+      - in: query
+        name: assignee
+        schema:
+          type: string
+        description: '"me" for your own tasks, or a user id.'
+      - in: query
+        name: due_after
+        schema:
+          type: string
+          format: date
+        description: Due on or after this date (YYYY-MM-DD). Tasks without a due date
+          never match.
+      - in: query
+        name: due_before
+        schema:
+          type: string
+          format: date
+        description: Due on or before this date (YYYY-MM-DD). Tasks without a due
+          date never match.
+      - in: query
+        name: ordering
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - -created_at
+            - -due_date
+            - -status
+            - created_at
+            - due_date
+            - status
+        description: |-
+          due_date, created_at or status; prefix - for descending, and separate several with commas: ?ordering=status,-due_date. Tasks without a due date come last, status sorts as to_do, in_progress, done, and ties go to the oldest task. Default: due_date.
+
+          * `due_date` - Due date
+          * `-due_date` - Due date (descending)
+          * `created_at` - Created at
+          * `-created_at` - Created at (descending)
+          * `status` - Status
+          * `-status` - Status (descending)
+        explode: false
+        style: form
+      - in: query
+        name: overdue
+        schema:
+          type: string
+          enum:
+          - 'false'
+          - 'true'
+        description: 'true: due before today and not done. false: everything else.'
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: page_size
+        required: false
+        in: query
+        description: Number of results to return per page.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Part of the title, ignoring case.
+      - in: query
+        name: status
+        schema:
+          type: array
+          items:
+            type: string
+            enum:
+            - done
+            - in_progress
+            - to_do
+        description: |-
+          One or more statuses, as repeated parameters: ?status=to_do&status=done.
+
+          * `to_do` - To do
+          * `in_progress` - In progress
+          * `done` - Done
+        explode: true
+        style: form
+      tags:
+      - tasks
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedTaskList'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+    post:
+      operationId: tasks_create
+      description: Any signed-in user can create a task, and becomes its owner. Assigning
+        someone else notifies them.
+      summary: Create a task
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreateRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/tasks/{id}/:
+    get:
+      operationId: tasks_retrieve
+      summary: Show a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+    patch:
+      operationId: tasks_partial_update
+      description: Change the title, description or due date; fields left out keep
+        their value. The owner or an admin only. Status and assignee have their own
+        endpoints.
+      summary: Edit a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedTaskUpdateRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: You can see the task but may not do this to it.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+    delete:
+      operationId: tasks_destroy
+      description: 'The owner or an admin only. It''s gone for good: there''s no archive.'
+      summary: Delete a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      security:
+      - jwtAuth: []
+      responses:
+        '204':
+          description: Deleted.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: You can see the task but may not do this to it.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/tasks/{id}/assign/:
+    post:
+      operationId: tasks_assign
+      description: The owner or an admin only. The new assignee is notified, unless
+        it's you or the task's assignee already.
+      summary: Assign, reassign or unassign a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: You can see the task but may not do this to it.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/tasks/{id}/complete/:
+    post:
+      operationId: tasks_complete
+      description: to_do or in_progress to done, setting completed_at. The owner,
+        the assignee or an admin. No body.
+      summary: Complete a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: The task's status doesn't allow this action.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/tasks/{id}/reopen/:
+    post:
+      operationId: tasks_reopen
+      description: done to to_do, clearing completed_at. The owner, the assignee or
+        an admin. No body.
+      summary: Reopen a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: The task's status doesn't allow this action.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/tasks/{id}/start/:
+    post:
+      operationId: tasks_start
+      description: to_do to in_progress. The owner, the assignee or an admin. No body.
+      summary: Start a task
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: integer
+        required: true
+      tags:
+      - tasks
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+          description: ''
+        '400':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+          description: The input is invalid. Each field maps to its messages.
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No such task, or one you can't see.
+        '409':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: The task's status doesn't allow this action.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/users/:
+    get:
+      operationId: users_list
+      description: Every active user, by username, for the assignee picker. Not paginated.
+      summary: List the active users
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserSummary'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+  /api/users/me/:
+    get:
+      operationId: users_me_retrieve
+      description: Users, for any signed-in user.
+      summary: Show the signed-in user
+      tags:
+      - users
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          description: ''
+        '401':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: No access token, or one that has expired or is otherwise invalid.
+        '429':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+          description: Too many requests. The Retry-After header says how many seconds
+            to wait.
+components:
+  schemas:
+    AccessToken:
+      type: object
+      properties:
+        access:
+          type: string
+          description: A JWT valid for 5 minutes. Keep it in memory only.
+      required:
+      - access
+    AssignRequest:
+      type: object
+      description: POST /api/tasks/{id}/assign/. The key is required, so an empty
+        body isn't an unassign.
+      properties:
+        assignee_id:
+          type: integer
+          nullable: true
+          description: An active user's id, from /api/users/, or null to unassign.
+      required:
+      - assignee_id
+    CurrentUser:
+      type: object
+      description: The signed-in user. is_admin lets the frontend show admin actions;
+        the API still checks.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        username:
+          type: string
+          readOnly: true
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+        name:
+          type: string
+          readOnly: true
+        is_admin:
+          type: boolean
+          readOnly: true
+      required:
+      - id
+      - is_admin
+      - name
+      - username
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+          description: What went wrong, for a person to read.
+      required:
+      - detail
+    Health:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+      - status
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required:
+      - password
+      - username
+    PaginatedTaskList:
+      type: object
+      required:
+      - count
+      - results
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+    PatchedTaskUpdateRequest:
+      type: object
+      description: |-
+        PATCH /api/tasks/{id}/: only the title, description and due date (ADR 0004).
+
+        Every field is optional. One left out never reaches validated_data, so UpdateTask gets
+        UNSET for it and keeps its value; an explicit null due date clears it.
+      properties:
+        title:
+          type: string
+          description: 1 to 200 characters. Surrounding spaces are removed first.
+        description:
+          type: string
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          description: null clears it. A new date can't be in the past; re-sending
+            the current one is always fine, so an overdue task stays editable.
+    StatusEnum:
+      enum:
+      - to_do
+      - in_progress
+      - done
+      type: string
+      description: |-
+        * `to_do` - To do
+        * `in_progress` - In progress
+        * `done` - Done
+    Task:
+      type: object
+      description: A task as every endpoint returns it, reads and writes alike.
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        title:
+          type: string
+          readOnly: true
+        description:
+          type: string
+          readOnly: true
+        status:
+          allOf:
+          - $ref: '#/components/schemas/StatusEnum'
+          readOnly: true
+        due_date:
+          type: string
+          format: date
+          readOnly: true
+          nullable: true
+        is_overdue:
+          type: boolean
+          readOnly: true
+          description: Due before today (in the server's time zone) and not done.
+            Never stored.
+        owner:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+        assignee:
+          allOf:
+          - $ref: '#/components/schemas/UserSummary'
+          readOnly: true
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          readOnly: true
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - assignee
+      - completed_at
+      - created_at
+      - description
+      - due_date
+      - id
+      - is_overdue
+      - owner
+      - status
+      - title
+      - updated_at
+    TaskCreateRequest:
+      type: object
+      description: POST /api/tasks/. Fields left out get CreateTask's defaults.
+      properties:
+        title:
+          type: string
+          description: 1 to 200 characters. Surrounding spaces are removed first.
+        description:
+          type: string
+        due_date:
+          type: string
+          format: date
+          nullable: true
+          description: 'Today or later. null or left out: none.'
+        assignee_id:
+          type: integer
+          nullable: true
+          description: 'An active user''s id, from /api/users/. null or left out:
+            unassigned.'
+      required:
+      - title
+    UserSummary:
+      type: object
+      description: 'A user as others see them: in the assignee picker, and as a task''s
+        owner or assignee.'
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+          readOnly: true
+      required:
+      - id
+      - name
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

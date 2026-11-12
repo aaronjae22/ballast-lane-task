@@ -39,6 +39,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Type check: `npm run typecheck`. Build: `npm run build`
   - Lint and format check: `npm run lint` (ESLint with type information, then `prettier --check`). Format: `npm run format`
   - Tests: `npm test` (Vitest, once) or `npm run test:watch`. A test fails if it logs a console warning or error it didn't declare with `expectConsole`
+  - API types: `npm run gen:api` after any change to the API. It writes the schema from the backend (through uv; no database, Redis or secret needed) and the types from the schema into `src/api/generated/`, which is committed and never edited by hand. `npm run gen:types` redoes only the types, without Python. CI fails if either is stale
 - pre-commit (from the repo root; needs `uv sync` in `backend/` and `npm ci` in `frontend/` first, because the hooks run the tools those install):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
   - All hooks: `uv run --project backend pre-commit run --all-files`

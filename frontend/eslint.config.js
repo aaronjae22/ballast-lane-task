@@ -6,7 +6,8 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage']),
+  // src/api/generated/ is written by npm run gen:api and never edited (ADR 0016).
+  globalIgnores(['dist', 'coverage', 'src/api/generated']),
   {
     files: ['**/*.js'],
     extends: [js.configs.recommended],
