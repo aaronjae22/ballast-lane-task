@@ -1,21 +1,25 @@
 """The task endpoints (spec section 5).
 
 Reads go through visible_tasks(user), so a task outside the user's visibility is 404, the same
-answer as for a missing one (ADR 0003). Writes go through tasks/api/wiring.py, one use case
-per endpoint, and arrive in later commits.
+answer as for a missing one (ADR 0003). Each write checks the body's shape, calls one use case
+through tasks/api/wiring.py, and returns the task read back through visible_tasks, so writes
+and reads return the same shape (ADR 0014).
 """
+
+from typing import Any
 
 from django.db.models import BooleanField, ExpressionWrapper, QuerySet
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import extend_schema
-from rest_framework import mixins, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from config.openapi import error_responses
+from tasks.api import wiring
 from tasks.api.filters import TaskFilter
 from tasks.api.pagination import TaskPagination
-from tasks.api.serializers import TaskSerializer
+from tasks.api.serializers import TaskCreateSerializer, TaskSerializer
 from tasks.domain.errors import TaskNotFound
 from tasks.infrastructure.clock import DjangoClock
 from tasks.models import Task
@@ -44,11 +48,18 @@ class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         Missing and not visible raise the same TaskNotFound as the write use cases, so every
         404 for a task has the same body.
         """
-        task_id = self.kwargs["pk"]
+        return self._visible_task(self.kwargs["pk"])
+
+    def _visible_task(self, task_id: int) -> Task:
         task = self.get_queryset().filter(pk=task_id).first()
         if task is None:
             raise TaskNotFound(task_id)
         return task
+
+    def _read_back(self, task_id: int | None) -> dict[str, Any]:
+        """The task after a write, as a read returns it. The writer can always still see it."""
+        assert task_id is not None, "a stored task has an id"
+        return self.get_serializer(self._visible_task(task_id)).data
 
     @extend_schema(
         summary="List tasks",
@@ -65,3 +76,16 @@ class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     )
     def retrieve(self, request: Request, pk: int) -> Response:
         return Response(self.get_serializer(self.get_object()).data)
+
+    @extend_schema(
+        summary="Create a task",
+        description="Any signed-in user can create a task, and becomes its owner. Assigning "
+        "someone else notifies them.",
+        request=TaskCreateSerializer,
+        responses={201: TaskSerializer, **error_responses(400, 401, 429)},
+    )
+    def create(self, request: Request) -> Response:
+        body = TaskCreateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        task = wiring.create_task(request.user, **body.validated_data)
+        return Response(self._read_back(task.id), status=status.HTTP_201_CREATED)

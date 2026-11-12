@@ -191,3 +191,14 @@ def test_the_login_body_has_a_plain_component_name(client: Client) -> None:
     body = login["requestBody"]["content"]["application/json"]["schema"]
 
     assert body == {"$ref": "#/components/schemas/LoginRequest"}
+
+
+def test_create_documents_its_own_body_and_answers(client: Client) -> None:
+    api = schema(client)
+    create = api["paths"]["/api/tasks/"]["post"]
+    body = create["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    component = api["components"]["schemas"][body.rsplit("/", 1)[1]]
+
+    assert set(create["responses"]) == {"201", "400", "401", "429"}
+    assert set(component["properties"]) == {"title", "description", "due_date", "assignee_id"}
+    assert component["required"] == ["title"]

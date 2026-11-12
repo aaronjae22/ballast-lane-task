@@ -23,14 +23,6 @@ from tests.unit.builders import EARLIER
 from tests.unit.fakes import RecordingNotifier
 
 
-@pytest.fixture
-def notifier(monkeypatch: pytest.MonkeyPatch) -> RecordingNotifier:
-    """Stands in for whatever wiring.notifier() returns, now or after iteration 4."""
-    recording = RecordingNotifier()
-    monkeypatch.setattr(wiring, "notifier", lambda: recording)
-    return recording
-
-
 class AtomicSpy:
     """A notifier that records whether it was called inside a transaction."""
 
