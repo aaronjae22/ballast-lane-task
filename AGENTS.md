@@ -17,7 +17,7 @@ Team Task Board: a task management REST API (Django + DRF) with a React + TypeSc
 
 Created in iteration 0. Whoever adds or changes a command updates this list in the same commit.
 
-- Whole stack: `docker compose up --build` (no `.env` needed; `.env.example` lists the overrides). Postgres is published on host port 5433, Mailpit's UI on http://localhost:8025. The backend migrates and seeds the demo data (README credentials). The worker and beat don't reload: run `docker compose restart worker beat` after a code change
+- Whole stack: `docker compose up --build` (no `.env` needed; `.env.example` lists the overrides). The app is on http://localhost:5173 (Vite, proxying `/api` to the backend), Swagger on http://localhost:8000/api/docs/. Postgres is published on host port 5433, Mailpit's UI on http://localhost:8025. The backend migrates and seeds the demo data (README credentials). The worker and beat don't reload: run `docker compose restart worker beat` after a code change
   - Trigger the due-tomorrow reminder by hand: `docker compose exec worker celery -A config call tasks.send_due_tomorrow_reminders`
   - Seed again (creates nothing if the data is there): `docker compose exec backend python manage.py seed_demo`. Start over with `docker compose down -v`
 - Backend prod image: `docker build --target prod backend/`
