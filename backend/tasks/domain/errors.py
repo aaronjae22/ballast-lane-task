@@ -11,6 +11,18 @@ class DomainError(Exception):
     """Base class for every broken business rule."""
 
 
+class NotAllowed(DomainError):
+    """The actor can see the task but may not take this action on it (HTTP 403)."""
+
+
+class TaskNotFound(DomainError):
+    """No such task, or the actor can't see it (HTTP 404). The two are deliberately alike."""
+
+    def __init__(self, task_id: int | None) -> None:
+        super().__init__(f"Task {task_id} not found.")
+        self.task_id = task_id
+
+
 class DomainValidationError(DomainError):
     """A value breaks a field rule (HTTP 400).
 
