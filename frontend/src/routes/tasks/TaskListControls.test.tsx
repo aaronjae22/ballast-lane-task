@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { act, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
@@ -123,6 +123,38 @@ describe('title search', () => {
     await waitFor(() => {
       expect(box).toHaveValue('')
     })
+  })
+
+  // Longer than the search box's 300 ms wait, so a pending search would have fired.
+  const afterTheWait = () => act(() => new Promise<void>((resolve) => setTimeout(resolve, 400)))
+
+  it("Back while a refinement is still waiting drops it, so Back isn't undone", async () => {
+    const { router } = openList('/tasks', onePage)
+    const box = await screen.findByRole('searchbox', { name: 'Search titles' })
+    await userEvent.type(box, 'invoice')
+    await waitFor(() => {
+      expect(router.state.location.search).toBe('?search=invoice')
+    })
+
+    await userEvent.type(box, ' oct')
+    await act(() => router.navigate(-1))
+    await afterTheWait()
+
+    expect(router.state.location.search).toBe('')
+    expect(box).toHaveValue('')
+  })
+
+  it('Clear filters while a refinement is still waiting drops it', async () => {
+    const { router } = openList('/tasks?search=invoice', aPage([]))
+    const box = await screen.findByRole('searchbox', { name: 'Search titles' })
+    await screen.findByText('No tasks match these filters')
+
+    await userEvent.type(box, ' oct')
+    await userEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+    await afterTheWait()
+
+    expect(router.state.location.search).toBe('')
+    expect(box).toHaveValue('')
   })
 
   it('shows the search from a shared link', async () => {
