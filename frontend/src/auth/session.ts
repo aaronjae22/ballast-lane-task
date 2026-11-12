@@ -15,6 +15,12 @@ export interface SessionState {
   readonly status: AuthStatus
 }
 
+/**
+ * How a refresh ended. `rejected`: there's no session (no cookie, or a cookie the backend
+ * refused twice). `unavailable`: the backend couldn't answer (network error, 5xx or 429).
+ */
+export type RefreshOutcome = 'refreshed' | 'rejected' | 'unavailable'
+
 /** Why a login failed, for the login form's message. */
 export type LoginFailure = 'invalid' | 'throttled' | 'unavailable'
 
@@ -53,6 +59,21 @@ export interface Session {
   login(credentials: LoginRequest): Promise<void>
   /** Signs out locally whatever the backend answers, then the status is `anonymous`. */
   logout(): Promise<void>
+  /**
+   * The silent refresh on page load. Memoized for the session's lifetime: a second call (React
+   * StrictMode runs effects twice) gets the same promise, not a second request. Sets the
+   * status to `authenticated`, `anonymous` or `unavailable`.
+   */
+  restore(): Promise<RefreshOutcome>
+  /** Tries the restore again after `unavailable`. The status is `restoring` meanwhile. */
+  retryRestore(): Promise<RefreshOutcome>
+  /**
+   * A new access token from the refresh cookie. One at a time: callers that arrive while a
+   * refresh is in flight share its result (ADR 0014). A 401 is retried once, because another
+   * tab may have just rotated the cookie. `rejected` signs out; `unavailable` keeps the
+   * session.
+   */
+  refresh(): Promise<RefreshOutcome>
 }
 
 export interface SessionOptions {
@@ -82,7 +103,77 @@ export function createSession({ authClient }: SessionOptions): Session {
     }
   }
 
+  let refreshing: Promise<RefreshOutcome> | null = null
+  let loggingOut = false
+  let restoring: Promise<RefreshOutcome> | null = null
+
+  // One request to the refresh endpoint, read as what it means for the session.
+  async function askForToken(): Promise<
+    { kind: 'token'; access: string } | { kind: 'refused' | 'no cookie' | 'unavailable' }
+  > {
+    let result
+    try {
+      result = await authClient.POST('/api/auth/token/refresh/')
+    } catch {
+      return { kind: 'unavailable' }
+    }
+    const { status } = result.response
+    if (status === 204) return { kind: 'no cookie' }
+    if (result.data) return { kind: 'token', access: result.data.access }
+    if (status === 401) return { kind: 'refused' }
+    return { kind: 'unavailable' }
+  }
+
+  async function runRefresh(): Promise<RefreshOutcome> {
+    const startedIn = generation
+    let answer = await askForToken()
+    // Another tab may have rotated the cookie a moment ago, and the browser now holds the new
+    // one, so one retry can succeed (ADR 0014).
+    if (answer.kind === 'refused') answer = await askForToken()
+    // Logged out meanwhile: logout waited for this refresh and revokes the cookie it set.
+    if (generation !== startedIn) return 'rejected'
+    if (answer.kind === 'token') {
+      accessToken = answer.access
+      setStatus('authenticated')
+      return 'refreshed'
+    }
+    if (answer.kind === 'unavailable') return 'unavailable'
+    accessToken = null
+    setStatus('anonymous')
+    return 'rejected'
+  }
+
+  function refresh(): Promise<RefreshOutcome> {
+    // A refresh started now would carry the generation logout already bumped, so its answer
+    // couldn't be told apart and would bring the token back. Logout is signing out anyway.
+    if (loggingOut) return Promise.resolve('rejected')
+    refreshing ??= runRefresh().finally(() => {
+      refreshing = null
+    })
+    return refreshing
+  }
+
+  async function settleRestore(): Promise<RefreshOutcome> {
+    const outcome = await refresh()
+    // Only a restore turns "can't reach the server" into a status. Later refreshes keep the
+    // session, so a server blip doesn't sign anyone out.
+    if (outcome === 'unavailable') setStatus('unavailable')
+    return outcome
+  }
+
   return {
+    restore() {
+      restoring ??= settleRestore()
+      return restoring
+    },
+
+    retryRestore() {
+      setStatus('restoring')
+      return settleRestore()
+    },
+
+    refresh,
+
     getState: () => state,
 
     subscribe(listener) {
@@ -129,7 +220,16 @@ export function createSession({ authClient }: SessionOptions): Session {
       // started before can tell from the generation (ADR 0016).
       generation += 1
       accessToken = null
-      await revokeRefreshCookie()
+      loggingOut = true
+      try {
+        // A refresh in flight would set a newer cookie than the one logout revokes. Wait for
+        // it (it never rejects), so the revoked cookie is the newest one. No new refresh starts
+        // until logout is done.
+        if (refreshing) await refreshing
+        await revokeRefreshCookie()
+      } finally {
+        loggingOut = false
+      }
       setStatus('anonymous')
     },
   }

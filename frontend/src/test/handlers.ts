@@ -30,3 +30,25 @@ export function logoutSucceeds() {
 export function logoutUnreachable() {
   return http.post(apiUrl('/api/auth/logout/'), () => HttpResponse.error())
 }
+
+/**
+ * Answers refreshes in order, one answer per request: a number is that status with no body
+ * (204) or an error body, a string is a 200 with that access token, and 'unreachable' is a
+ * network error. The last answer repeats. `count()` is the number of refreshes received.
+ */
+export function refreshAnswers(...answers: (number | string)[]) {
+  let received = 0
+  const handler = http.post(apiUrl('/api/auth/token/refresh/'), () => {
+    const answer = answers[Math.min(received, answers.length - 1)]
+    received += 1
+    if (answer === 'unreachable') return HttpResponse.error()
+    if (typeof answer === 'string') {
+      return HttpResponse.json({ access: answer } satisfies Schemas['AccessToken'])
+    }
+    if (answer === 204) return new HttpResponse(null, { status: 204 })
+    return HttpResponse.json({ detail: 'Token is invalid' } satisfies Schemas['Error'], {
+      status: answer,
+    })
+  })
+  return { handler, count: () => received }
+}
