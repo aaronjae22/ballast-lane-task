@@ -1,0 +1,7 @@
+{% autoescape off %}Hi {{ user.display_name }},
+
+{% if tasks|length == 1 %}This task is{% else %}These tasks are{% endif %} due tomorrow, {{ day|date:"l, j F Y" }}:
+{% for task in tasks %}
+- {{ task.title }}
+  Status: {{ task.get_status_display }}. Owner: {{ task.owner.display_name }}.{% endfor %}
+{% endautoescape %}

@@ -5,6 +5,8 @@ plain-text body and an HTML alternative. The plain-text templates turn autoescap
 a title with "&" or "<" reads as typed there and is escaped only in the HTML.
 """
 
+from collections.abc import Sequence
+from datetime import date
 from typing import Any
 
 from django.core.mail import EmailMultiAlternatives
@@ -17,6 +19,14 @@ from tasks import models
 def assignment_email(task: models.Task, assignee: User) -> EmailMultiAlternatives:
     """Tells the assignee about a task assigned to them, as the task is now."""
     return _email("emails/task_assigned", {"task": task, "assignee": assignee}, to=assignee.email)
+
+
+def due_tomorrow_email(
+    user: User, tasks: Sequence[models.Task], day: date
+) -> EmailMultiAlternatives:
+    """One digest of the user's open tasks due on the day, in the order given."""
+    context = {"user": user, "tasks": tasks, "day": day}
+    return _email("emails/due_tomorrow", context, to=user.email)
 
 
 def _email(template: str, context: dict[str, Any], *, to: str) -> EmailMultiAlternatives:

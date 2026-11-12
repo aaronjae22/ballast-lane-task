@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en">
+  <body style="font-family: system-ui, sans-serif; line-height: 1.5; color: #1f2933">
+    <p>Hi {{ user.display_name }},</p>
+    <p>{% if tasks|length == 1 %}This task is{% else %}These tasks are{% endif %} due tomorrow, {{ day|date:"l, j F Y" }}:</p>
+    <ul>
+      {% for task in tasks %}
+        <li><strong>{{ task.title }}</strong><br>Status: {{ task.get_status_display }}. Owner: {{ task.owner.display_name }}.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
