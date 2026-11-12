@@ -8,7 +8,7 @@ Ordering is a filter too, so an unknown ordering is a 400 like any other (ADR 00
 from collections.abc import Sequence
 
 from django import forms
-from django.db.models import Case, F, IntegerField, Q, QuerySet, Value, When
+from django.db.models import Case, F, IntegerField, QuerySet, Value, When
 from django.db.models.expressions import OrderBy
 from django.http import HttpRequest, QueryDict
 from django_filters import fields
@@ -18,10 +18,9 @@ from tasks.application.ports import Clock
 from tasks.domain.status import Status
 from tasks.infrastructure.clock import DjangoClock
 from tasks.models import STATUS_CHOICES, Task
+from tasks.selectors import overdue
 
 ME = "me"
-# Overdue's "not done", spelled as the statuses it covers so (status, due_date) can serve it.
-_NOT_DONE = [status.value for status in Status if status is not Status.DONE]
 # User ids are BigAutoField. Checking the length first keeps a huge string away from int(),
 # which refuses more than 4,300 digits with a ValueError instead of a form error.
 _LARGEST_USER_ID = 2**63 - 1
@@ -153,8 +152,8 @@ class TaskFilter(filters.FilterSet):
 
     def filter_overdue(self, queryset: QuerySet[Task], name: str, value: bool) -> QuerySet[Task]:
         """Task.is_overdue() as a query: due before today and not done. Tested on the same cases."""
-        overdue = Q(due_date__lt=self._clock.today(), status__in=_NOT_DONE)
-        return queryset.filter(overdue) if value else queryset.exclude(overdue)
+        condition = overdue(self._clock.today())
+        return queryset.filter(condition) if value else queryset.exclude(condition)
 
     def filter_assignee(
         self, queryset: QuerySet[Task], name: str, value: str | int
