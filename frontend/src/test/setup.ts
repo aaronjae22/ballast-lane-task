@@ -3,6 +3,26 @@ import { cleanup } from '@testing-library/react'
 import { afterEach, beforeEach } from 'vitest'
 import { checkConsole, installConsoleGuard } from './console'
 
+// jsdom lacks two browser APIs Mantine uses: media queries and element resize events.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }),
+})
+
+class ResizeObserverStub implements ResizeObserver {
+  observe(): void {}
+  unobserve(): void {}
+  disconnect(): void {}
+}
+window.ResizeObserver = ResizeObserverStub
+
 const original = { error: console.error, warn: console.warn }
 
 beforeEach(() => {
