@@ -2,7 +2,8 @@
 # Runs without a .env file. .env.example documents the overrides compose reads.
 # backend, worker and beat run the same image with different commands (ADR 0009). Only the
 # backend migrates and seeds: worker and beat set MIGRATE_ON_START=false and start once the
-# backend is healthy (ADR 0015). The frontend service comes in iteration 5.
+# backend is healthy (ADR 0015). The frontend is Vite's dev server on http://localhost:5173, which
+# proxies /api to the backend, so the browser sees one origin (spec 6, ADR 0006).
 
 # Shared by every service built from the backend image.
 x-backend-env: &backend-env
@@ -106,6 +107,33 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+  # The app: http://localhost:5173. Vite proxies /api to the backend by its service name and
+  # keeps the Host header, which ALLOWED_HOSTS accepts (ADR 0016). The source is mounted for
+  # hot reload; the anonymous volume keeps the image's Linux node_modules from being hidden by
+  # the host's.
+  frontend:
+    build:
+      context: ./frontend
+      target: dev
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Healthy once Vite answers. 127.0.0.1, not localhost: Vite listens on IPv4, and busybox's
+    # wget may try ::1 first.
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1:5173/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   mailpit:
     image: axllent/mailpit:v1.33.1
