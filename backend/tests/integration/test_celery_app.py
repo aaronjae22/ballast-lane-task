@@ -1,5 +1,8 @@
 """The Celery app and the settings it reads (ADR 0015)."""
 
+from pathlib import Path
+
+from celery.schedules import crontab
 from django.conf import settings
 
 from config import celery_app
@@ -36,3 +39,20 @@ def test_results_are_not_stored_and_the_broker_is_retried_on_startup() -> None:
 def test_an_smtp_server_that_hangs_times_out() -> None:
     """Without a timeout, one unresponsive server would hold a worker forever."""
     assert settings.EMAIL_TIMEOUT == 10
+
+
+def test_beat_sends_the_due_tomorrow_reminders_daily_at_eight() -> None:
+    """At 08:00 in CELERY_TIMEZONE, which is TIME_ZONE (above)."""
+    entry = settings.CELERY_BEAT_SCHEDULE["due-tomorrow-reminders"]
+
+    assert entry["task"] == "tasks.send_due_tomorrow_reminders"
+    assert entry["schedule"] == crontab(hour=8, minute=0)
+    assert celery_app.conf.beat_schedule == settings.CELERY_BEAT_SCHEDULE
+
+
+def test_beat_keeps_its_schedule_file_out_of_the_source_folder() -> None:
+    """Compose mounts backend/ into the containers: a file there would land in the repo."""
+    schedule_file = Path(settings.CELERY_BEAT_SCHEDULE_FILENAME).resolve()
+
+    assert not schedule_file.is_relative_to(settings.BASE_DIR.resolve())
+    assert celery_app.conf.beat_schedule_filename == settings.CELERY_BEAT_SCHEDULE_FILENAME

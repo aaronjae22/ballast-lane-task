@@ -33,3 +33,35 @@ def overdue(today: date) -> Q:
     IS NOT NULL keeps it false, never NULL, for a task without a due date.
     """
     return Q(due_date__isnull=False, due_date__lt=today, status__in=_NOT_DONE)
+
+
+def reminder_recipients(day: date) -> QuerySet[User]:
+    """Who gets a due-tomorrow digest for this day: one row per user, in id order.
+
+    Active users with an email address who are assigned a task due on the day that isn't
+    done. Self-assigned tasks count. A system read for the Beat job, made on no user's behalf,
+    so it doesn't go through visible_tasks (ADR 0015): it reads across users, and it returns
+    users, not tasks. Each digest reads its tasks through due_on_for_assignee(), which does.
+    """
+    # One filter() call, so the due date and the status apply to the same task.
+    return (
+        User.objects.filter(
+            is_active=True, assigned_tasks__due_date=day, assigned_tasks__status__in=_NOT_DONE
+        )
+        .exclude(email="")
+        .distinct()
+        .order_by("pk")
+    )
+
+
+def due_on_for_assignee(user: User, day: date) -> QuerySet[Task]:
+    """The user's digest: tasks assigned to them, due on the day and not done, by title.
+
+    A read on the user's behalf, so it starts from visible_tasks(user), which also joins the
+    owner the email shows.
+    """
+    return (
+        visible_tasks(user)
+        .filter(assignee=user, due_date=day, status__in=_NOT_DONE)
+        .order_by("title", "pk")
+    )

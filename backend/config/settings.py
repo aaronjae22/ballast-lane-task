@@ -5,10 +5,12 @@ Every variable has a local default, so the app starts without a .env file.
 """
 
 import os
+import tempfile
 from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+from celery.schedules import crontab
 from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -123,6 +125,18 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_ACCEPT_CONTENT = ["json"]
 CELERY_TASK_IGNORE_RESULT = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+
+# Beat: one process, one daily entry, read in CELERY_TIMEZONE. Its schedule file goes to the
+# temp dir, never into backend/, which compose mounts from the repo.
+CELERY_BEAT_SCHEDULE = {
+    "due-tomorrow-reminders": {
+        "task": "tasks.send_due_tomorrow_reminders",
+        "schedule": crontab(hour=8, minute=0),
+    },
+}
+CELERY_BEAT_SCHEDULE_FILENAME = os.environ.get("CELERY_BEAT_SCHEDULE_FILENAME") or str(
+    Path(tempfile.gettempdir()) / "taskboard-celerybeat-schedule"
+)
 
 # Email: SMTP, pointing at Mailpit locally (web UI on http://localhost:8025)
 

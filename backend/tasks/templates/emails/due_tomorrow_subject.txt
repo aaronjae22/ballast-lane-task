@@ -1,0 +1,1 @@
+{% autoescape off %}Due tomorrow: {% if tasks|length == 1 %}{{ tasks.0.title }}{% else %}{{ tasks|length }} tasks{% endif %}{% endautoescape %}
