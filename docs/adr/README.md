@@ -15,6 +15,7 @@ One short file per decision that a reviewer might reasonably ask "why?" about. R
 | [0009](0009-docker-multi-stage-one-image.md) | Multi-stage Docker images, one backend image for every process | Accepted |
 | [0010](0010-ai-workflow-builder-reviewer.md) | AI-assisted workflow with separate builder and reviewer | Accepted |
 | [0011](0011-import-linter-contracts.md) | import-linter contracts as built | Accepted (supersedes 0002's contract list) |
+| [0012](0012-domain-conventions-time-identity-unchanged-values.md) | Domain conventions for time, identity and unchanged values | Accepted |
 
 ## Template
 
