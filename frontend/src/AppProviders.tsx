@@ -1,7 +1,10 @@
-import type { QueryClient } from '@tanstack/react-query'
+import { MantineProvider } from '@mantine/core'
+import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import type { ComponentProps, ReactElement } from 'react'
-import type { RouterProvider } from 'react-router'
+import { RouterProvider } from 'react-router'
+import { AuthProvider } from './auth/AuthProvider'
 import type { Auth } from './auth/createAuth'
+import { theme } from './theme'
 
 export interface AppProvidersProps {
   auth: Auth
@@ -12,6 +15,19 @@ export interface AppProvidersProps {
 }
 
 /** Mantine, then TanStack Query, then the session, then the routes, which use all three. */
-export function AppProviders(_props: AppProvidersProps): ReactElement {
-  throw new Error('not implemented')
+export function AppProviders({
+  auth,
+  queryClient,
+  router,
+  mantineEnv = 'default',
+}: AppProvidersProps): ReactElement {
+  return (
+    <MantineProvider theme={theme} defaultColorScheme="light" env={mantineEnv}>
+      <QueryClientProvider client={queryClient}>
+        <AuthProvider auth={auth}>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </QueryClientProvider>
+    </MantineProvider>
+  )
 }
