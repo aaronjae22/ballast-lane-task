@@ -21,6 +21,7 @@ One short file per decision that a reviewer might reasonably ask "why?" about. R
 | [0015](0015-background-jobs-and-demo-data.md) | Background jobs and demo data | Accepted |
 | [0016](0016-frontend-foundation.md) | Frontend foundation: API contract, session, routing and versions | Accepted |
 | [0017](0017-session-concurrency-rules.md) | Session concurrency rules: logout races, replaced tokens, query retries | Accepted |
+| [0018](0018-frontend-task-screens.md) | Frontend task screens: rule copies, dates, URL filters, mutations, layout, console check | Accepted |
 
 ## Template
 
