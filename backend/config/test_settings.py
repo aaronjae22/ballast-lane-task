@@ -8,7 +8,8 @@ would flush a developer's real cache (ADR 0014).
 
 import os
 
-os.environ.setdefault("DJANGO_SECRET_KEY", "test-only-not-a-secret")
+# Long enough for HS256 (32+ bytes): simplejwt signs tokens with the secret key.
+os.environ.setdefault("DJANGO_SECRET_KEY", "test-only-not-a-secret-but-long-enough-for-hs256")
 
 from config.settings import *  # noqa: F403
 from config.settings import CACHE_BACKENDS, REST_FRAMEWORK

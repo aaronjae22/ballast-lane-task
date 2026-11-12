@@ -71,3 +71,26 @@ def test_the_schema_and_docs_are_throttled_as_anonymous(client: Client, url: str
 
     assert response.status_code == 429
     assert int(response["Retry-After"]) > 0
+
+
+def test_endpoints_that_need_a_token_use_the_jwt_bearer_scheme(client: Client) -> None:
+    """So a token pasted into Swagger's Authorize is sent as Authorization: Bearer."""
+    api = schema(client)
+
+    assert api["components"]["securitySchemes"]["jwtAuth"] == {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+    }
+    for path in ("/api/users/", "/api/users/me/"):
+        assert api["paths"][path]["get"]["security"] == [{"jwtAuth": []}]
+
+
+@pytest.mark.parametrize("path", ["/api/users/", "/api/users/me/"])
+def test_the_users_endpoints_document_their_errors(client: Client, path: str) -> None:
+    responses = schema(client)["paths"][path]["get"]["responses"]
+
+    assert set(responses) == {"200", "401", "429"}
+    assert responses["401"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Error"
+    }
