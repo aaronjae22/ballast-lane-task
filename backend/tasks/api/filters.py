@@ -1,14 +1,15 @@
 """The task list filters (spec section 5), applied to the queryset from visible_tasks(user).
 
 Filters only narrow the queryset they're given, so they can't widen what a user sees. An
-invalid value is a form error (400 from iteration 3) and an empty value leaves a filter off
-(ADR 0013). Ordering and pagination come with the view in iteration 3.
+invalid value is a form error (a 400) and an empty value leaves a filter off (ADR 0013).
+Ordering is a filter too, so an unknown ordering is a 400 like any other (ADR 0014).
 """
 
 from collections.abc import Sequence
 
 from django import forms
-from django.db.models import Q, QuerySet
+from django.db.models import Case, F, IntegerField, Q, QuerySet, Value, When
+from django.db.models.expressions import OrderBy
 from django.http import HttpRequest, QueryDict
 from django_filters import fields
 from django_filters import rest_framework as filters
@@ -61,6 +62,34 @@ class _AssigneeFilter(filters.CharFilter):
     field_class = _AssigneeField
 
 
+# Status in workflow order, which is Status's declaration order: to_do, in_progress, done.
+_STATUS_RANK = Case(
+    *(When(status=status.value, then=Value(rank)) for rank, status in enumerate(Status)),
+    output_field=IntegerField(),
+)
+_DEFAULT_ORDERING = ("due_date",)
+
+
+class _TaskOrdering(filters.OrderingFilter):
+    """Orders by the given fields, then by id, so every order is total and pages never overlap.
+
+    Tasks without a due date come last in both directions: Postgres would put them first when
+    descending. With no value, the soonest due date comes first.
+    """
+
+    def filter(self, qs: QuerySet[Task], value: Sequence[str] | None) -> QuerySet[Task]:
+        params = [param for param in value or () if param] or _DEFAULT_ORDERING
+        return qs.order_by(*(self._order_by(param) for param in params), "id")
+
+    @staticmethod
+    def _order_by(param: str) -> OrderBy:
+        name = param.removeprefix("-")
+        expression = _STATUS_RANK if name == "status" else F(name)
+        if param.startswith("-"):
+            return expression.desc(nulls_last=True)
+        return expression.asc(nulls_last=True)
+
+
 class TaskFilter(filters.FilterSet):
     status = _StatusFilter(
         choices=STATUS_CHOICES,
@@ -91,6 +120,15 @@ class TaskFilter(filters.FilterSet):
         field_name="title",
         lookup_expr="icontains",
         help_text="Part of the title, ignoring case.",
+    )
+    ordering = _TaskOrdering(
+        fields=("due_date", "created_at", "status"),
+        help_text=(
+            "due_date, created_at or status; prefix - for descending, and separate several "
+            "with commas: ?ordering=status,-due_date. Tasks without a due date come last, "
+            "status sorts as to_do, in_progress, done, and ties go to the oldest task. "
+            "Default: due_date."
+        ),
     )
 
     class Meta:

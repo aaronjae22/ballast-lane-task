@@ -4,7 +4,7 @@ Each test filters the queryset the view will give it, so the filters can only na
 user may see. Invalid values are form errors and empty values leave a filter off (ADR 0013).
 """
 
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest import mock
 
 import pytest
@@ -16,7 +16,7 @@ from tasks.api.filters import TaskFilter
 from tasks.domain.status import Status
 from tasks.selectors import visible_tasks
 from tests.conftest import StoreTask
-from tests.unit.builders import NOW, TODAY, TOMORROW, YESTERDAY
+from tests.unit.builders import EARLIER, NOW, TODAY, TOMORROW, YESTERDAY
 from tests.unit.fakes import FixedClock
 from tests.unit.overdue_cases import OVERDUE_CASES
 
@@ -290,3 +290,91 @@ def test_assignee_combines_with_status_overdue_and_dates(
     params: Params = {"assignee": "me", "status": "in_progress", "overdue": "true"}
 
     assert run_filters(owner, params, clock=CLOCK) == {match.id}
+
+
+# Ordering (ADR 0014): due date, creation time or status, ascending or descending (-), and
+# comma-separated to combine. Tasks without a due date come last either way, status sorts in
+# workflow order, and id breaks every tie, so a page boundary can't split or repeat a task.
+
+
+def ordered(user: User, params: Params) -> list[int | None]:
+    filterset = make_filterset(user, params)
+    assert filterset.is_valid(), filterset.errors
+    return list(filterset.qs.values_list("id", flat=True))
+
+
+@pytest.fixture
+def by_due_date_with_ties(owner: User, store_task: StoreTask) -> dict[str, int | None]:
+    """Stored in an order unlike any sort, so a missing sort can't pass by accident."""
+    return {
+        "tomorrow": store_task(owner, due_date=TOMORROW).id,
+        "none": store_task(owner, due_date=None).id,
+        "yesterday": store_task(owner, due_date=YESTERDAY).id,
+        "today-first": store_task(owner, due_date=TODAY).id,
+        "today-second": store_task(owner, due_date=TODAY).id,
+    }
+
+
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        ({}, ["yesterday", "today-first", "today-second", "tomorrow", "none"]),
+        ({"ordering": ""}, ["yesterday", "today-first", "today-second", "tomorrow", "none"]),
+        (
+            {"ordering": "due_date"},
+            ["yesterday", "today-first", "today-second", "tomorrow", "none"],
+        ),
+        (
+            {"ordering": "-due_date"},
+            ["tomorrow", "today-first", "today-second", "yesterday", "none"],
+        ),
+    ],
+    ids=["default", "empty", "ascending", "descending"],
+)
+def test_due_date_ordering_puts_tasks_without_one_last_either_way(
+    owner: User, by_due_date_with_ties: dict[str, int | None], params: Params, expected: list[str]
+) -> None:
+    assert ordered(owner, params) == [by_due_date_with_ties[name] for name in expected]
+
+
+def test_created_at_orders_by_creation_time_either_way(owner: User, store_task: StoreTask) -> None:
+    middle = store_task(owner, created_at=datetime(2026, 11, 5, tzinfo=UTC)).id
+    latest = store_task(owner, created_at=NOW).id
+    earliest = store_task(owner, created_at=EARLIER).id
+
+    assert ordered(owner, {"ordering": "created_at"}) == [earliest, middle, latest]
+    assert ordered(owner, {"ordering": "-created_at"}) == [latest, middle, earliest]
+
+
+def test_status_orders_in_workflow_order_not_alphabetically(
+    owner: User, store_task: StoreTask
+) -> None:
+    done = store_task(owner, status=Status.DONE).id
+    to_do = store_task(owner, status=Status.TO_DO).id
+    in_progress = store_task(owner, status=Status.IN_PROGRESS).id
+
+    assert ordered(owner, {"ordering": "status"}) == [to_do, in_progress, done]
+    assert ordered(owner, {"ordering": "-status"}) == [done, in_progress, to_do]
+
+
+def test_orderings_combine_left_to_right_and_id_breaks_the_last_tie(
+    owner: User, store_task: StoreTask
+) -> None:
+    done_late = store_task(owner, status=Status.DONE, due_date=TOMORROW).id
+    to_do_none = store_task(owner, status=Status.TO_DO, due_date=None).id
+    to_do_late = store_task(owner, status=Status.TO_DO, due_date=TOMORROW).id
+    to_do_early = store_task(owner, status=Status.TO_DO, due_date=YESTERDAY).id
+    to_do_late_again = store_task(owner, status=Status.TO_DO, due_date=TOMORROW).id
+
+    assert ordered(owner, {"ordering": "status,-due_date"}) == [
+        to_do_late,
+        to_do_late_again,
+        to_do_early,
+        to_do_none,
+        done_late,
+    ]
+
+
+@pytest.mark.parametrize("value", ["bogus", "title", "due_date,bogus", "--due_date"])
+def test_an_unknown_ordering_is_an_error(owner: User, value: str) -> None:
+    assert "ordering" in errors(owner, {"ordering": value})
