@@ -59,7 +59,8 @@ def test_a_rolled_back_assignment_is_never_logged(
 def test_the_message_reaches_stderr_under_the_projects_own_logging(settings_module: str) -> None:
     """No caplog here: it would lower the level itself and hide a missing LOGGING config.
 
-    Outside a transaction, on_commit runs the callback at once, so no database is needed.
+    Outside a transaction, on_commit runs the callback at once. It still connects to check
+    autocommit, so the subprocess inherits DATABASE_URL from the test run.
     """
     script = (
         "import django; django.setup()\n"
