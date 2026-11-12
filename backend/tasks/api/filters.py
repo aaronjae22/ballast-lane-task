@@ -97,6 +97,9 @@ _OVERDUE_SCHEMA = {"type": "string", "enum": ["false", "true"], "description": _
 class TaskFilter(filters.FilterSet):
     status = _StatusFilter(
         choices=STATUS_CHOICES,
+        # django-filter adds DISTINCT for filters across a to-many join. A task has one
+        # status, so it would only make Postgres sort whole rows to remove nothing.
+        distinct=False,
         help_text="One or more statuses, as repeated parameters: ?status=to_do&status=done.",
     )
     due_after = filters.DateFilter(
