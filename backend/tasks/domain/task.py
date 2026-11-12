@@ -2,12 +2,22 @@
 
 from dataclasses import dataclass
 from datetime import date, datetime
+from enum import Enum
 from typing import Self
 
 from tasks.domain.errors import DomainValidationError
 from tasks.domain.status import Status
 
 TITLE_MAX_LENGTH = 200
+
+
+class Unset(Enum):
+    """Marks an edit argument that wasn't given. None can't do it: it clears the due date."""
+
+    UNSET = "UNSET"
+
+
+UNSET = Unset.UNSET
 
 
 @dataclass(kw_only=True, slots=True)
@@ -59,6 +69,35 @@ class Task:
             created_at=now,
             updated_at=now,
         )
+
+    def is_overdue(self, today: date) -> bool:
+        """Due before today and not done. Computed whenever it's needed, never stored."""
+        return (
+            self.due_date is not None and self.due_date < today and self.status is not Status.DONE
+        )
+
+    def edit(
+        self,
+        *,
+        title: str | Unset = UNSET,
+        description: str | Unset = UNSET,
+        due_date: date | Unset | None = UNSET,
+        today: date,
+        now: datetime,
+    ) -> None:
+        """Change the title, description or due date. Arguments left out keep their value.
+
+        Everything is checked before anything changes, so a failed edit leaves the task as it
+        was. The past-date rule applies only to a new due date: a task that is already overdue
+        stays editable, and re-sending its current due date is allowed.
+        """
+        new_title = self.title if title is UNSET else _valid_title(title)
+        new_description = self.description if description is UNSET else description
+        new_due_date = self.due_date if due_date is UNSET else due_date
+        if new_due_date != self.due_date:
+            _check_due_date(new_due_date, today)
+        self.title, self.description, self.due_date = new_title, new_description, new_due_date
+        self.updated_at = now
 
 
 def _valid_title(title: str) -> str:
