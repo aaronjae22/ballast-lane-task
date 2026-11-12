@@ -65,7 +65,7 @@ describe('ordering', () => {
   it('orders by the soonest due date unless another order is chosen', async () => {
     const { router, lastQuery } = openList('/tasks', onePage)
 
-    const order = await screen.findByRole('textbox', { name: 'Order' })
+    const order = await screen.findByRole('combobox', { name: 'Order' })
     expect(order).toHaveValue('Due date, soonest first')
     await userEvent.click(order)
     await userEvent.click(await screen.findByRole('option', { name: 'Newest first' }))
@@ -79,7 +79,7 @@ describe('ordering', () => {
   it('choosing the default order again leaves it out of the URL', async () => {
     const { router } = openList('/tasks?ordering=status', onePage)
 
-    await userEvent.click(await screen.findByRole('textbox', { name: 'Order' }))
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Order' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Due date, soonest first' }))
 
     expect(router.state.location.search).toBe('')
@@ -89,7 +89,7 @@ describe('ordering', () => {
 describe('title search', () => {
   it('searches once the user stops typing, not on every key', async () => {
     const { router, list, lastQuery } = openList('/tasks', onePage)
-    const box = await screen.findByRole('textbox', { name: 'Search titles' })
+    const box = await screen.findByRole('searchbox', { name: 'Search titles' })
 
     await userEvent.type(box, 'invoice')
 
@@ -105,7 +105,7 @@ describe('title search', () => {
 
   it('starting a search adds a history entry, and refining it replaces that entry', async () => {
     const { router } = openList('/tasks', onePage)
-    const box = await screen.findByRole('textbox', { name: 'Search titles' })
+    const box = await screen.findByRole('searchbox', { name: 'Search titles' })
 
     await userEvent.type(box, 'invoice')
     await waitFor(() => {
@@ -128,7 +128,7 @@ describe('title search', () => {
   it('shows the search from a shared link', async () => {
     openList('/tasks?search=invoice', onePage)
 
-    expect(await screen.findByRole('textbox', { name: 'Search titles' })).toHaveValue('invoice')
+    expect(await screen.findByRole('searchbox', { name: 'Search titles' })).toHaveValue('invoice')
   })
 })
 
@@ -140,7 +140,7 @@ describe('a shared link with invalid filters', () => {
     expect(alert).toHaveTextContent("Some filters in this link weren't valid")
     expect(alert).toHaveTextContent('These were ignored: Status, Page.')
 
-    await userEvent.click(screen.getByRole('textbox', { name: 'Order' }))
+    await userEvent.click(screen.getByRole('combobox', { name: 'Order' }))
     await userEvent.click(await screen.findByRole('option', { name: 'Newest first' }))
 
     expect(router.state.location.search).toBe('?search=invoice&ordering=-created_at')
