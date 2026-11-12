@@ -103,6 +103,53 @@ jobs:
       - name: Build
         run: npm run build
 
+  # The frontend's API contract (ADR 0016): the committed schema and types in
+  # frontend/src/api/generated/ must be exactly what the backend and openapi-typescript give.
+  # Fails on a backend change without npm run gen:api, a hand edit, or a generator upgrade.
+  api-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          working-directory: backend
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # gen:schema sets DEBUG and a local cache itself: no database, Redis or secret needed.
+      - name: Regenerate the schema and the types
+        working-directory: frontend
+        run: npm run gen:api
+
+      - name: Check that the committed contract is current
+        run: |
+          changes=$(git status --porcelain -- frontend/src/api/generated/)
+          if [ -n "$changes" ]; then
+            echo "$changes"
+            git diff -- frontend/src/api/generated/
+            echo "The generated API contract is stale: run npm run gen:api in frontend/ and commit it."
+            exit 1
+          fi
+          echo "The generated API contract is current."
+
   docker:
     runs-on: ubuntu-latest
     steps:

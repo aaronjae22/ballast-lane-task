@@ -5,8 +5,11 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
+      # The generated API contract is written by npm run gen:api; hooks must not rewrite it.
       - id: end-of-file-fixer
+        exclude: ^frontend/src/api/generated/
       - id: trailing-whitespace
+        exclude: ^frontend/src/api/generated/
         # Keep Markdown hard line breaks (two trailing spaces).
         args: [--markdown-linebreak-ext=md]
       - id: check-yaml
@@ -62,9 +65,11 @@ repos:
         language: system
         types_or: [ts, tsx, javascript]
         files: ^frontend/
+        exclude: ^frontend/src/api/generated/
       - id: prettier
         name: prettier (frontend)
         entry: frontend/node_modules/.bin/prettier --write --ignore-unknown --ignore-path frontend/.prettierignore
         language: system
         types: [text]
         files: ^frontend/
+        exclude: ^frontend/src/api/generated/
