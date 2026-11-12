@@ -101,6 +101,10 @@ class RefreshView(_ParsesTheBodyFirst, TokenRefreshView):
     A failed refresh is 401 and leaves the cookie alone (ADR 0014). Two refreshes sent with
     the same cookie race: the first rotates it, the second fails on the now-blacklisted
     token. If the failure cleared the cookie and arrived last, it would delete the new one.
+
+    Without a cookie, or with an empty one, it's 204 with no body (ADR 0016, amending 0014).
+    That means "not signed in", which isn't an error: the frontend's silent refresh asks on
+    every page load, and a 401 would leave a red line in the browser console each time.
     """
 
     @extend_schema(
@@ -108,18 +112,21 @@ class RefreshView(_ParsesTheBodyFirst, TokenRefreshView):
         description=(
             "Reads the refresh_token cookie, which the browser sends by itself, and rotates it: "
             "the old token stops working. " + _COOKIE_NOTE + " A failed refresh leaves the "
-            "cookie as it was. No request body."
+            "cookie as it was. Without the cookie it's 204: not signed in. No request body."
         ),
         request=None,
         responses={
             200: OpenApiResponse(AccessTokenSerializer, description=_COOKIE_NOTE),
+            204: OpenApiResponse(
+                description="No refresh_token cookie: not signed in. No body, no cookie set."
+            ),
             **error_responses(401, 415, 429),
         },
     )
     def post(self, request: Request) -> Response:
         token = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
         if not token:
-            raise exceptions.NotAuthenticated("No refresh token cookie.")
+            return Response(status=status.HTTP_204_NO_CONTENT)
         serializer = self.get_serializer(data={"refresh": token})
         try:
             serializer.is_valid(raise_exception=True)
