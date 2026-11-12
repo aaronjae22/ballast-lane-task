@@ -22,6 +22,16 @@ def test_health_is_public_and_ignores_a_bad_token(client: Client) -> None:
     assert response.status_code == 200
 
 
+@pytest.mark.django_db
+def test_health_is_never_throttled(client: Client) -> None:
+    """Liveness can't fail on a used-up limit or a cache outage (ADR 0014)."""
+    anonymous_limit = 30
+
+    statuses = {client.get(HEALTH_URL).status_code for _ in range(anonymous_limit + 1)}
+
+    assert statuses == {200}
+
+
 def test_health_is_503_when_the_database_check_fails(client: Client) -> None:
     broken = mock.MagicMock()
     broken.cursor.side_effect = OperationalError("connection refused")
