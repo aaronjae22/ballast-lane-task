@@ -18,6 +18,7 @@ One short file per decision that a reviewer might reasonably ask "why?" about. R
 | [0012](0012-domain-conventions-time-identity-unchanged-values.md) | Domain conventions for time, identity and unchanged values | Accepted |
 | [0013](0013-persistence-read-side-conventions.md) | Persistence and read-side conventions | Accepted |
 | [0014](0014-api-conventions.md) | API conventions | Accepted |
+| [0015](0015-background-jobs-and-demo-data.md) | Background jobs and demo data | Accepted |
 
 ## Template
 
