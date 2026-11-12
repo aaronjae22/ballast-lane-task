@@ -2,6 +2,7 @@
 
 from datetime import UTC, date, datetime, timedelta
 
+from tasks.domain.actor import Actor
 from tasks.domain.status import Status
 from tasks.domain.task import Task
 
@@ -16,6 +17,11 @@ OWNER_ID = 1
 ASSIGNEE_ID = 2
 ADMIN_ID = 3
 OTHER_USER_ID = 4
+
+OWNER = Actor(id=OWNER_ID)
+ASSIGNEE = Actor(id=ASSIGNEE_ID)
+ADMIN = Actor(id=ADMIN_ID, is_admin=True)
+OTHER_USER = Actor(id=OTHER_USER_ID)
 
 
 def make_task(**overrides: object) -> Task:
