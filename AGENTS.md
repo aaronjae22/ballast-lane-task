@@ -68,7 +68,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
 
 - **Test first** for domain rules and use cases: write the failing test and commit it (`test: ...`), then implement (`feat: ...`).
 - Unit tests (`tests/unit/`) never touch the database; use the in-memory fakes.
-- Any permission change needs a matching row in the permission-matrix test.
+- Any permission change needs a matching row in the permission-matrix test, and in the frontend's `src/features/tasks/permissions.test.ts`, which mirrors the matrix for the actions a user sees (ADR 0018).
 - List and detail endpoints have query-count assertions; keep them passing.
 - The coverage gate is 80%. Don't lower it, and don't add `pragma: no cover` to reach it.
 
