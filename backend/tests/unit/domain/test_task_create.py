@@ -3,10 +3,10 @@
 from datetime import date
 
 import pytest
+
 from tasks.domain.errors import DomainValidationError
 from tasks.domain.status import Status
 from tasks.domain.task import TITLE_MAX_LENGTH, Task
-
 from tests.unit.builders import ASSIGNEE_ID, NOW, OWNER_ID, TODAY, TOMORROW, YESTERDAY
 
 
