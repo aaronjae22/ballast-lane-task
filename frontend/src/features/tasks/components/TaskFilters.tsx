@@ -59,7 +59,11 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (search: stri
     setShown(value)
     if (value !== text.trim()) setText(value)
   }
-  const search = useDebouncedCallback((next: string) => {
+  // Each keystroke notes the URL's search it was typed over. If the URL has moved since
+  // (Back, Clear filters), the user has left that search, so it's dropped instead of written
+  // back over their navigation. The debounced callback always sees the latest `value`.
+  const search = useDebouncedCallback((next: string, typedOver: string) => {
+    if (typedOver !== value) return
     onSearch(next.trim())
   }, 300)
 
@@ -70,7 +74,7 @@ function SearchBox({ value, onSearch }: { value: string; onSearch: (search: stri
       value={text}
       onChange={(event) => {
         setText(event.currentTarget.value)
-        search(event.currentTarget.value)
+        search(event.currentTarget.value, value)
       }}
       style={{ flex: '1 1 220px' }}
     />
