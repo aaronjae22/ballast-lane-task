@@ -262,6 +262,23 @@ def test_assignee_takes_only_me_or_a_user_id(owner: User, value: str) -> None:
     assert "assignee" in errors(owner, {"assignee": value})
 
 
+# User ids are BigAutoField, so none is above 2**63 - 1 (Codex review of #21).
+LARGEST_USER_ID = 2**63 - 1
+
+
+@pytest.mark.parametrize(
+    "value",
+    [str(LARGEST_USER_ID + 1), "9" * 5000],
+    ids=["one-past-the-largest-id", "past-pythons-int-conversion-limit"],
+)
+def test_an_assignee_id_no_user_can_have_is_an_error(owner: User, value: str) -> None:
+    assert "assignee" in errors(owner, {"assignee": value})
+
+
+def test_the_largest_possible_user_id_is_accepted(owner: User) -> None:
+    assert run_filters(owner, {"assignee": str(LARGEST_USER_ID)}) == set()
+
+
 def test_assignee_combines_with_status_overdue_and_dates(
     owner: User, store_task: StoreTask
 ) -> None:
