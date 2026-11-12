@@ -33,7 +33,10 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
     - Beat (exactly one): `uv run celery -A config beat --loglevel=info`. Its schedule file goes to the system temp dir
     - Trigger the reminder by hand: `uv run celery -A config call tasks.send_due_tomorrow_reminders`
   - Tests never need Redis, a worker or an SMTP server: jobs run in-process and mail goes to Django's in-memory outbox
-- Frontend (run from `frontend/`, from iteration 5): `npm ci`, `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run gen:api`
+- Frontend (run from `frontend/`). Node is pinned in `frontend/.nvmrc`: run `nvm use` first (`npm ci` refuses another Node version)
+  - Install: `npm ci`
+  - Dev server: `npm run dev` (http://localhost:5173)
+  - Type check: `npm run typecheck`. Build: `npm run build`
 - pre-commit (from the repo root; needs `uv sync` in `backend/` first):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
   - All hooks: `uv run --project backend pre-commit run --all-files`
