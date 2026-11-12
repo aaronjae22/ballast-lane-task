@@ -17,6 +17,7 @@ One short file per decision that a reviewer might reasonably ask "why?" about. R
 | [0011](0011-import-linter-contracts.md) | import-linter contracts as built | Accepted (supersedes 0002's contract list) |
 | [0012](0012-domain-conventions-time-identity-unchanged-values.md) | Domain conventions for time, identity and unchanged values | Accepted |
 | [0013](0013-persistence-read-side-conventions.md) | Persistence and read-side conventions | Accepted |
+| [0014](0014-api-conventions.md) | API conventions | Accepted |
 
 ## Template
 
