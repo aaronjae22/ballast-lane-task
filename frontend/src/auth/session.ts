@@ -46,7 +46,10 @@ export interface Session {
   getAccessToken(): string | null
   /** Changes at every logout, so work started before it can tell it's stale. */
   generation(): number
-  /** Throws LoginError. On success the status is `authenticated`. */
+  /**
+   * Throws LoginError. On success the status is `authenticated`, unless the user logged out
+   * while the login was in flight: then its answer is discarded and its cookie revoked.
+   */
   login(credentials: LoginRequest): Promise<void>
   /** Signs out locally whatever the backend answers, then the status is `anonymous`. */
   logout(): Promise<void>
@@ -69,6 +72,16 @@ export function createSession({ authClient }: SessionOptions): Session {
     for (const listener of listeners) listener()
   }
 
+  // Blacklists the refresh cookie's token and clears the cookie. Errors are ignored: the
+  // backend always answers 204 when it's reachable (ADR 0014).
+  async function revokeRefreshCookie(): Promise<void> {
+    try {
+      await authClient.POST('/api/auth/logout/')
+    } catch {
+      // Unreachable: signed out on this page all the same.
+    }
+  }
+
   return {
     getState: () => state,
 
@@ -84,12 +97,20 @@ export function createSession({ authClient }: SessionOptions): Session {
     generation: () => generation,
 
     async login(credentials) {
+      const startedIn = generation
       let result
       try {
         result = await authClient.POST('/api/auth/token/', { body: credentials })
       } catch {
         // fetch rejects only when no response came back: the server is down or unreachable.
         throw new LoginError('unavailable')
+      }
+      if (result.data && generation !== startedIn) {
+        // The user logged out while this login was in flight. Its answer set a new refresh
+        // cookie after logout cleared the old one, so revoke that too, or a reload would
+        // sign the user back in. The session stays signed out.
+        await revokeRefreshCookie()
+        return
       }
       if (result.data) {
         accessToken = result.data.access
@@ -108,11 +129,7 @@ export function createSession({ authClient }: SessionOptions): Session {
       // started before can tell from the generation (ADR 0016).
       generation += 1
       accessToken = null
-      try {
-        await authClient.POST('/api/auth/logout/')
-      } catch {
-        // Unreachable. The backend always answers 204 otherwise (ADR 0014).
-      }
+      await revokeRefreshCookie()
       setStatus('anonymous')
     },
   }
