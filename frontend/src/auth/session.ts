@@ -104,6 +104,7 @@ export function createSession({ authClient }: SessionOptions): Session {
   }
 
   let refreshing: Promise<RefreshOutcome> | null = null
+  let loggingOut = false
   let restoring: Promise<RefreshOutcome> | null = null
 
   // One request to the refresh endpoint, read as what it means for the session.
@@ -143,6 +144,9 @@ export function createSession({ authClient }: SessionOptions): Session {
   }
 
   function refresh(): Promise<RefreshOutcome> {
+    // A refresh started now would carry the generation logout already bumped, so its answer
+    // couldn't be told apart and would bring the token back. Logout is signing out anyway.
+    if (loggingOut) return Promise.resolve('rejected')
     refreshing ??= runRefresh().finally(() => {
       refreshing = null
     })
@@ -216,10 +220,16 @@ export function createSession({ authClient }: SessionOptions): Session {
       // started before can tell from the generation (ADR 0016).
       generation += 1
       accessToken = null
-      // A refresh in flight would set a newer cookie than the one logout revokes. Wait for it
-      // (it never rejects), so the revoked cookie is the newest one.
-      if (refreshing) await refreshing
-      await revokeRefreshCookie()
+      loggingOut = true
+      try {
+        // A refresh in flight would set a newer cookie than the one logout revokes. Wait for
+        // it (it never rejects), so the revoked cookie is the newest one. No new refresh starts
+        // until logout is done.
+        if (refreshing) await refreshing
+        await revokeRefreshCookie()
+      } finally {
+        loggingOut = false
+      }
       setStatus('anonymous')
     },
   }
