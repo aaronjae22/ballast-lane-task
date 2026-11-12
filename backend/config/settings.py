@@ -191,6 +191,19 @@ SPECTACULAR_SETTINGS = {
     "SWAGGER_UI_FAVICON_HREF": f"{SWAGGER_UI_DIST}/favicon-32x32.png",
 }
 
+# Logging. Django configures only its own "django" logger, so without this the project's
+# loggers fall back to Python's last-resort handler, which drops everything below WARNING.
+# The tasks loggers (LoggingNotifier among them) write INFO and up to stderr, which
+# runserver, Gunicorn and Docker all show.
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(levelname)s %(name)s: %(message)s"}},
+    "handlers": {"stderr": {"class": "logging.StreamHandler", "formatter": "plain"}},
+    "loggers": {"tasks": {"handlers": ["stderr"], "level": "INFO"}},
+}
+
 # Static files
 
 STATIC_URL = "static/"
