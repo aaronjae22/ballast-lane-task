@@ -96,6 +96,56 @@ jobs:
       - name: Check that the entrypoint applied every migration
         run: docker compose exec -T backend python manage.py migrate --check
 
+      # spec section 13: "the seed runs twice without duplicates". The entrypoint ran it once.
+      - name: Check that a second seed creates nothing
+        run: |
+          output=$(docker compose exec -T backend python manage.py seed_demo)
+          echo "$output"
+          test "$output" = "Created 0 users and 0 tasks."
+
+      # Only the backend migrates (ADR 0015). migrate prints "Operations to perform".
+      - name: Check that the worker and beat did not migrate
+        run: |
+          docker compose logs worker beat
+          ! docker compose logs worker beat | grep -q "Operations to perform"
+
+      # spec section 13: "assigning a task shows an email in Mailpit". Through the API, the
+      # Celery notifier, Redis, the worker and SMTP, read back from Mailpit's API.
+      - name: Check that an assignment email reaches Mailpit
+        run: |
+          api=http://localhost:8000/api
+          token=$(curl --fail --silent --show-error -X POST "$api/auth/token/" \
+            -H "Content-Type: application/json" \
+            -d '{"username": "alice", "password": "demo-password"}' | jq -r .access)
+          bob=$(curl --fail --silent --show-error "$api/users/" \
+            -H "Authorization: Bearer $token" | jq '.[] | select(.name == "Bob Smith") | .id')
+          curl --fail --silent --show-error -X POST "$api/tasks/" \
+            -H "Authorization: Bearer $token" -H "Content-Type: application/json" \
+            -d "{\"title\": \"CI smoke assignment\", \"assignee_id\": $bob}"
+          echo
+          for _ in $(seq 30); do
+            to=$(curl --fail --silent http://localhost:8025/api/v1/messages | jq -r \
+              '.messages[] | select(.Subject | endswith("CI smoke assignment")) | .To[].Address')
+            if [ "$to" = "bob@example.com" ]; then echo "Mailpit has it, to $to"; exit 0; fi
+            sleep 2
+          done
+          echo "No assignment email for bob@example.com in Mailpit"; exit 1
+
+      # The reminder, triggered by hand as Beat would. The seed gives alice, bob and carol an
+      # open task due tomorrow, and each gets one digest.
+      - name: Check that the due-tomorrow digests reach Mailpit
+        run: |
+          docker compose exec -T worker celery -A config call tasks.send_due_tomorrow_reminders
+          expected="alice@example.com bob@example.com carol@example.com"
+          for _ in $(seq 30); do
+            to=$(curl --fail --silent http://localhost:8025/api/v1/messages | jq -r \
+              '[.messages[] | select(.Subject | startswith("Due tomorrow")) | .To[].Address]
+               | sort | join(" ")')
+            if [ "$to" = "$expected" ]; then echo "Mailpit has digests for $to"; exit 0; fi
+            sleep 2
+          done
+          echo "Expected digests for $expected, found: $to"; exit 1
+
       - name: Show compose logs
         if: failure()
         run: docker compose logs
