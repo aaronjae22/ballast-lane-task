@@ -17,7 +17,7 @@ from tasks import models
 from tasks.api import wiring
 from tasks.domain.actor import Actor
 from tasks.domain.status import Status
-from tasks.infrastructure.notifications import LoggingNotifier
+from tasks.infrastructure.notifications import CeleryNotifier
 from tests.conftest import StoreTask
 from tests.unit.builders import EARLIER
 from tests.unit.fakes import RecordingNotifier
@@ -135,5 +135,5 @@ def test_the_admin_flag_reaches_the_use_cases(
     assert models.Task.objects.get(pk=task.id).title == "Edited by an admin"
 
 
-def test_the_wiring_uses_the_logging_notifier_until_iteration_4() -> None:
-    assert isinstance(wiring.notifier(), LoggingNotifier)
+def test_the_wiring_queues_assignment_emails_through_celery() -> None:
+    assert isinstance(wiring.notifier(), CeleryNotifier)
