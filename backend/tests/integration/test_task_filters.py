@@ -4,7 +4,11 @@ Each test filters the queryset the view will give it, so the filters can only na
 user may see. Invalid values are form errors and empty values leave a filter off (ADR 0013).
 """
 
+from datetime import date
+from unittest import mock
+
 import pytest
+from django.db.models import Max
 from django.test import RequestFactory
 
 from accounts.models import User
@@ -12,7 +16,9 @@ from tasks.api.filters import TaskFilter
 from tasks.domain.status import Status
 from tasks.selectors import visible_tasks
 from tests.integration.conftest import StoreTask
-from tests.unit.builders import TODAY, TOMORROW, YESTERDAY
+from tests.unit.builders import NOW, TODAY, TOMORROW, YESTERDAY
+from tests.unit.fakes import FixedClock
+from tests.unit.overdue_cases import OVERDUE_CASES
 
 pytestmark = pytest.mark.django_db
 
@@ -162,3 +168,108 @@ def test_filters_never_return_a_task_the_user_cannot_see(
     store_task(other_user, title="Write the spec")
 
     assert run_filters(owner, {"status": "to_do", "search": "spec"}) == {own.id}
+
+
+# Overdue: the same cases as Task.is_overdue(), judged on the same TODAY.
+
+CLOCK = FixedClock(now=NOW, today=TODAY)
+
+
+@pytest.mark.parametrize(
+    ("status", "due_date", "overdue"), list(OVERDUE_CASES.values()), ids=list(OVERDUE_CASES)
+)
+def test_overdue_agrees_with_task_is_overdue_on_every_shared_case(
+    owner: User, store_task: StoreTask, status: Status, due_date: date | None, overdue: bool
+) -> None:
+    task = store_task(owner, status=status, due_date=due_date)
+
+    assert task.is_overdue(TODAY) is overdue
+    assert (task.id in run_filters(owner, {"overdue": "true"}, clock=CLOCK)) is overdue
+    assert (task.id in run_filters(owner, {"overdue": "false"}, clock=CLOCK)) is not overdue
+
+
+def test_an_empty_overdue_leaves_the_filter_off(owner: User, store_task: StoreTask) -> None:
+    late = store_task(owner, due_date=YESTERDAY)
+    on_time = store_task(owner, due_date=TOMORROW)
+
+    assert run_filters(owner, {"overdue": ""}, clock=CLOCK) == {late.id, on_time.id}
+
+
+def test_overdue_judges_today_by_the_real_clock_by_default(
+    owner: User, store_task: StoreTask
+) -> None:
+    late = store_task(owner, due_date=YESTERDAY)
+    store_task(owner, due_date=TODAY)
+
+    with mock.patch("django.utils.timezone.now", return_value=NOW):
+        assert run_filters(owner, {"overdue": "true"}) == {late.id}
+
+
+@pytest.mark.parametrize("value", ["yes", "1", "True", "maybe"])
+def test_overdue_takes_only_true_or_false(owner: User, value: str) -> None:
+    assert "overdue" in errors(owner, {"overdue": value})
+
+
+# Assignee: "me" or a user id, within what the user may see.
+
+
+@pytest.fixture
+def by_assignee(
+    owner: User, assignee: User, other_user: User, store_task: StoreTask
+) -> dict[str, int | None]:
+    return {
+        "owner-to-self": store_task(owner, owner).id,
+        "owner-to-assignee": store_task(owner, assignee).id,
+        "owner-unassigned": store_task(owner).id,
+        "other-to-owner": store_task(other_user, owner).id,
+        # Not visible to the owner: it must never come back, whatever the filter.
+        "other-to-assignee": store_task(other_user, assignee).id,
+    }
+
+
+def test_assignee_me_keeps_the_tasks_assigned_to_the_user(
+    owner: User, by_assignee: dict[str, int | None]
+) -> None:
+    expected = {by_assignee["owner-to-self"], by_assignee["other-to-owner"]}
+
+    assert run_filters(owner, {"assignee": "me"}) == expected
+
+
+def test_assignee_id_keeps_that_users_tasks_among_those_visible(
+    owner: User, assignee: User, by_assignee: dict[str, int | None]
+) -> None:
+    assert run_filters(owner, {"assignee": str(assignee.pk)}) == {by_assignee["owner-to-assignee"]}
+
+
+def test_an_unknown_assignee_id_matches_nothing(
+    owner: User, by_assignee: dict[str, int | None]
+) -> None:
+    unknown_id = User.objects.aggregate(highest=Max("pk"))["highest"] + 1
+
+    assert run_filters(owner, {"assignee": str(unknown_id)}) == set()
+
+
+def test_an_empty_assignee_leaves_the_filter_off(
+    owner: User, by_assignee: dict[str, int | None]
+) -> None:
+    visible = set(by_assignee.values()) - {by_assignee["other-to-assignee"]}
+
+    assert run_filters(owner, {"assignee": ""}) == visible
+
+
+@pytest.mark.parametrize("value", ["ME", "someone", "-1", "0", "1.5"])
+def test_assignee_takes_only_me_or_a_user_id(owner: User, value: str) -> None:
+    assert "assignee" in errors(owner, {"assignee": value})
+
+
+def test_assignee_combines_with_status_overdue_and_dates(
+    owner: User, store_task: StoreTask
+) -> None:
+    match = store_task(owner, owner, status=Status.IN_PROGRESS, due_date=YESTERDAY)
+    store_task(owner, owner, status=Status.TO_DO, due_date=YESTERDAY)
+    store_task(owner, owner, status=Status.IN_PROGRESS, due_date=TOMORROW)
+    store_task(owner, status=Status.IN_PROGRESS, due_date=YESTERDAY)
+
+    params: Params = {"assignee": "me", "status": "in_progress", "overdue": "true"}
+
+    assert run_filters(owner, params, clock=CLOCK) == {match.id}
