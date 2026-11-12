@@ -8,6 +8,8 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import AccessToken
 
 from accounts.models import User
+from tasks.api import wiring
+from tests.unit.fakes import RecordingNotifier
 
 type ClientFor = Callable[[User], APIClient]
 
@@ -37,3 +39,11 @@ def client_for() -> ClientFor:
         return client
 
     return make
+
+
+@pytest.fixture
+def notifier(monkeypatch: pytest.MonkeyPatch) -> RecordingNotifier:
+    """Stands in for whatever wiring.notifier() returns, now or after iteration 4."""
+    recording = RecordingNotifier()
+    monkeypatch.setattr(wiring, "notifier", lambda: recording)
+    return recording
