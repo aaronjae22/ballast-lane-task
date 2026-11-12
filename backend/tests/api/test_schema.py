@@ -214,3 +214,10 @@ def test_edit_documents_its_own_body_and_answers_and_there_is_no_put(client: Cli
     assert set(task["patch"]["responses"]) == {"200", "400", "401", "403", "404", "429"}
     assert set(component["properties"]) == {"title", "description", "due_date"}
     assert "required" not in component
+
+
+def test_delete_documents_its_empty_answer_and_its_errors(client: Client) -> None:
+    delete = schema(client)["paths"]["/api/tasks/{id}/"]["delete"]
+
+    assert set(delete["responses"]) == {"204", "401", "403", "404", "429"}
+    assert "content" not in delete["responses"]["204"]
