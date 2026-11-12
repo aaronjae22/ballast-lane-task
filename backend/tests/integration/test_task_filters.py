@@ -127,7 +127,7 @@ def by_title(owner: User, store_task: StoreTask) -> dict[str, int | None]:
     [
         ("spec", {"spec", "review"}),
         ("Spec", {"spec", "review"}),
-        ("the spec", {"spec"}),
+        ("write the", {"spec"}),
         ("budget", set()),
         ("", {"spec", "review", "venue"}),
     ],
