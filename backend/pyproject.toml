@@ -70,6 +70,7 @@ forbidden_modules = [
     "tasks.infrastructure",
     "tasks.api",
     "tasks.selectors",
+    "tasks.models",
     # Add tasks.models and tasks.admin in the commit that creates them (iteration 2):
     # import-linter rejects forbidden modules that don't exist yet.
 ]
