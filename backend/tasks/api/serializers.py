@@ -74,3 +74,25 @@ class TaskCreateSerializer(RejectUnknownFields):
         allow_null=True,
         help_text="An active user's id, from /api/users/. null or left out: unassigned.",
     )
+
+
+class TaskUpdateSerializer(RejectUnknownFields):
+    """PATCH /api/tasks/{id}/: only the title, description and due date (ADR 0004).
+
+    Every field is optional. One left out never reaches validated_data, so UpdateTask gets
+    UNSET for it and keeps its value; an explicit null due date clears it.
+    """
+
+    title = serializers.CharField(
+        required=False,
+        trim_whitespace=False,
+        allow_blank=True,
+        help_text="1 to 200 characters. Surrounding spaces are removed first.",
+    )
+    description = serializers.CharField(required=False, trim_whitespace=False, allow_blank=True)
+    due_date = serializers.DateField(
+        required=False,
+        allow_null=True,
+        help_text="null clears it. A new date can't be in the past; re-sending the current "
+        "one is always fine, so an overdue task stays editable.",
+    )

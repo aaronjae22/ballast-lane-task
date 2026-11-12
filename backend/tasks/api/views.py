@@ -19,7 +19,7 @@ from config.openapi import error_responses
 from tasks.api import wiring
 from tasks.api.filters import TaskFilter
 from tasks.api.pagination import TaskPagination
-from tasks.api.serializers import TaskCreateSerializer, TaskSerializer
+from tasks.api.serializers import TaskCreateSerializer, TaskSerializer, TaskUpdateSerializer
 from tasks.domain.errors import TaskNotFound
 from tasks.infrastructure.clock import DjangoClock
 from tasks.models import Task
@@ -89,3 +89,16 @@ class TaskViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
         body.is_valid(raise_exception=True)
         task = wiring.create_task(request.user, **body.validated_data)
         return Response(self._read_back(task.id), status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        summary="Edit a task",
+        description="Change the title, description or due date; fields left out keep their "
+        "value. The owner or an admin only. Status and assignee have their own endpoints.",
+        request=TaskUpdateSerializer,
+        responses={200: TaskSerializer, **error_responses(400, 401, 403, 404, 429)},
+    )
+    def partial_update(self, request: Request, pk: int) -> Response:
+        body = TaskUpdateSerializer(data=request.data)
+        body.is_valid(raise_exception=True)
+        task = wiring.update_task(request.user, pk, **body.validated_data)
+        return Response(self._read_back(task.id))
