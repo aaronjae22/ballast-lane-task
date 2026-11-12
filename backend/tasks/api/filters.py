@@ -13,6 +13,7 @@ from django.db.models.expressions import OrderBy
 from django.http import HttpRequest, QueryDict
 from django_filters import fields
 from django_filters import rest_framework as filters
+from drf_spectacular.utils import extend_schema_field
 
 from tasks.application.ports import Clock
 from tasks.domain.status import Status
@@ -89,6 +90,10 @@ class _TaskOrdering(filters.OrderingFilter):
         return expression.asc(nulls_last=True)
 
 
+_OVERDUE_HELP = "true: due before today and not done. false: everything else."
+_OVERDUE_SCHEMA = {"type": "string", "enum": ["false", "true"], "description": _OVERDUE_HELP}
+
+
 class TaskFilter(filters.FilterSet):
     status = _StatusFilter(
         choices=STATUS_CHOICES,
@@ -109,7 +114,7 @@ class TaskFilter(filters.FilterSet):
         choices=(("true", "true"), ("false", "false")),
         coerce=lambda value: value == "true",
         method="filter_overdue",
-        help_text="true: due before today and not done. false: everything else.",
+        help_text=_OVERDUE_HELP,
     )
     assignee = _AssigneeFilter(
         method="filter_assignee",
@@ -150,6 +155,10 @@ class TaskFilter(filters.FilterSet):
         super().__init__(data, queryset, request=request, prefix=prefix)
         self._clock = clock or DjangoClock()
 
+    # The query string carries "true" or "false". Without this, the schema would take the type
+    # from value's hint (bool) and pair it with string choices. An override replaces the enum
+    # and the description too, so it repeats them.
+    @extend_schema_field(_OVERDUE_SCHEMA)
     def filter_overdue(self, queryset: QuerySet[Task], name: str, value: bool) -> QuerySet[Task]:
         """Task.is_overdue() as a query: due before today and not done. Tested on the same cases."""
         condition = overdue(self._clock.today())
