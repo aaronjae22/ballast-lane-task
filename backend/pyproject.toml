@@ -41,6 +41,11 @@ force-exclude = true
 [tool.ruff.lint]
 extend-select = ["E", "F", "W", "I", "B", "UP", "DJ", "SIM", "RUF"]
 
+[tool.ruff.lint.isort]
+# Ruff only detects first-party code whose module file already exists, and test-first
+# commits import modules that don't yet. Naming the packages keeps the grouping stable.
+known-first-party = ["accounts", "config", "tasks", "tests"]
+
 [tool.importlinter]
 root_packages = ["tasks"]
 # Needed so contracts can name third-party packages (django, rest_framework, celery).

@@ -1,0 +1,33 @@
+"""Shared values for unit tests: fixed dates and user ids, so no test reads a clock."""
+
+from datetime import UTC, date, datetime, timedelta
+
+from tasks.domain.status import Status
+from tasks.domain.task import Task
+
+TODAY = date(2026, 11, 11)
+YESTERDAY = TODAY - timedelta(days=1)
+LAST_WEEK = TODAY - timedelta(days=7)
+TOMORROW = TODAY + timedelta(days=1)
+NOW = datetime(2026, 11, 11, 15, 30, tzinfo=UTC)
+EARLIER = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
+
+OWNER_ID = 1
+ASSIGNEE_ID = 2
+
+
+def make_task(**overrides: object) -> Task:
+    """A stored task, rebuilt without the create() rules (so it can already be overdue)."""
+    fields: dict[str, object] = {
+        "id": 1,
+        "title": "Write the spec",
+        "description": "",
+        "status": Status.TO_DO,
+        "due_date": None,
+        "owner_id": OWNER_ID,
+        "assignee_id": None,
+        "completed_at": None,
+        "created_at": EARLIER,
+        "updated_at": EARLIER,
+    }
+    return Task(**(fields | overrides))
