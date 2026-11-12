@@ -26,6 +26,10 @@ type Send = Callable[[APIClient, int, dict[str, User]], Response]
 # Matrix action -> its endpoints: (name, status the task starts in, the request, success code).
 ENDPOINTS: dict[str, list[tuple[str, Status, Send, int]]] = {
     "view": [("detail", Status.TO_DO, lambda c, i, u: c.get(f"/api/tasks/{i}/"), 200)],
+    "edit": [
+        ("edit", Status.TO_DO, lambda c, i, u: c.patch(f"/api/tasks/{i}/", {"title": "New"}), 200)
+    ],
+    "delete": [("delete", Status.TO_DO, lambda c, i, u: c.delete(f"/api/tasks/{i}/"), 204)],
 }
 DENIED = {NOT_ALLOWED: 403, NOT_FOUND: 404}
 
