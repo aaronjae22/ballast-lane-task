@@ -14,3 +14,8 @@ export function isDay(text: string): boolean {
     date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
   )
 }
+
+/** A due date as people read it: "Nov 12, 2026", the same day in every time zone. */
+export function formatDay(_day: string): string {
+  throw new Error('not implemented')
+}
