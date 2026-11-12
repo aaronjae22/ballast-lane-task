@@ -1,12 +1,15 @@
+import { use } from 'react'
 import type { ApiClient } from '../api/client'
-import type { AuthContextValue } from './authContext'
+import { AuthContext, type AuthContextValue } from './authContext'
 
 /** The session's status and actions. Throws outside <AuthProvider>. */
 export function useAuth(): AuthContextValue {
-  throw new Error('not implemented')
+  const value = use(AuthContext)
+  if (value === null) throw new Error('useAuth must be used inside <AuthProvider>.')
+  return value
 }
 
 /** The API client, for query hooks. */
 export function useApi(): ApiClient {
-  throw new Error('not implemented')
+  return useAuth().api
 }
