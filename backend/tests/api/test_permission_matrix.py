@@ -29,6 +29,14 @@ ENDPOINTS: dict[str, list[tuple[str, Status, Send, int]]] = {
     "edit": [
         ("edit", Status.TO_DO, lambda c, i, u: c.patch(f"/api/tasks/{i}/", {"title": "New"}), 200)
     ],
+    "assign": [
+        (
+            "assign",
+            Status.TO_DO,
+            lambda c, i, u: c.post(f"/api/tasks/{i}/assign/", {"assignee_id": u["admin"].pk}),
+            200,
+        )
+    ],
     "delete": [("delete", Status.TO_DO, lambda c, i, u: c.delete(f"/api/tasks/{i}/"), 204)],
 }
 DENIED = {NOT_ALLOWED: 403, NOT_FOUND: 404}

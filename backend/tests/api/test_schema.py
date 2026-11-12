@@ -221,3 +221,16 @@ def test_delete_documents_its_empty_answer_and_its_errors(client: Client) -> Non
 
     assert set(delete["responses"]) == {"204", "401", "403", "404", "429"}
     assert "content" not in delete["responses"]["204"]
+
+
+def test_assign_documents_its_own_body_answers_and_name(client: Client) -> None:
+    api = schema(client)
+    assign = api["paths"]["/api/tasks/{id}/assign/"]["post"]
+    body = assign["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    component = api["components"]["schemas"][body.rsplit("/", 1)[1]]
+
+    assert assign["operationId"] == "tasks_assign"
+    assert assign["requestBody"]["required"] is True
+    assert set(assign["responses"]) == {"200", "400", "401", "403", "404", "429"}
+    assert component["required"] == ["assignee_id"]
+    assert component["properties"]["assignee_id"]["nullable"] is True
