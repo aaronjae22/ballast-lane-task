@@ -94,3 +94,14 @@ def test_the_users_endpoints_document_their_errors(client: Client, path: str) ->
     assert responses["401"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/Error"
     }
+
+
+def test_login_documents_its_body_its_answers_and_no_token(client: Client) -> None:
+    api = schema(client)
+    login = api["paths"]["/api/auth/token/"]["post"]
+    body = login["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+
+    assert set(login["responses"]) == {"200", "400", "401", "429"}
+    # The refresh token goes into the cookie, never into the documented body.
+    assert set(api["components"]["schemas"][body.rsplit("/", 1)[1]]["properties"]) == {"access"}
+    assert {"jwtAuth": []} not in login.get("security", [])
