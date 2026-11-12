@@ -9,11 +9,13 @@ on the table's statistics; docs/query-plans.md records the plans on 100,000 task
 
 import pytest
 from django.db import connection
+from django.db.models import QuerySet
 from django.test import RequestFactory
 
 from accounts.models import User
 from tasks.api.filters import TaskFilter
 from tasks.domain.status import Status
+from tasks.models import Task
 from tasks.selectors import visible_tasks
 from tests.conftest import StoreTask
 from tests.unit.builders import NOW, TODAY, TOMORROW, YESTERDAY
@@ -41,17 +43,22 @@ def no_sequential_scans() -> None:
         cursor.execute("SET LOCAL enable_seqscan = off")
 
 
-def plan(user: User, params: Params) -> str:
-    """EXPLAIN of the query the task list runs for these parameters, as an admin sees it.
-
-    An admin's visible_tasks has no owner or assignee condition, so only the filters can use
-    an index.
-    """
+def filtered(user: User, params: Params) -> QuerySet[Task]:
+    """The query the task list runs for these parameters."""
     request = RequestFactory().get("/api/tasks/", params)
     request.user = user
     filterset = TaskFilter(request.GET, queryset=visible_tasks(user), request=request, clock=CLOCK)
     assert filterset.is_valid(), filterset.errors
-    return filterset.qs.explain()
+    return filterset.qs
+
+
+def plan(user: User, params: Params) -> str:
+    """EXPLAIN of the task list's query, as an admin sees it.
+
+    An admin's visible_tasks has no owner or assignee condition, so only the filters can use
+    an index.
+    """
+    return filtered(user, params).explain()
 
 
 @pytest.mark.parametrize(
@@ -79,3 +86,24 @@ def test_the_status_and_overdue_filters_use_the_status_due_date_index(
     index_condition = next(line for line in query_plan.splitlines() if "Index Cond" in line)
     for condition in conditions:
         assert condition in index_condition, query_plan
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"status": "to_do"},
+        {"status": ["to_do", "done"]},
+        {"due_after": str(TODAY), "due_before": str(TOMORROW)},
+        {"overdue": "true"},
+        {"assignee": "me"},
+        {"search": "spec"},
+        {"ordering": "status,-due_date"},
+    ],
+    ids=["status", "statuses", "due-dates", "overdue", "assignee", "search", "ordering"],
+)
+def test_no_filter_makes_the_list_query_distinct(owner: User, params: Params) -> None:
+    """A task has one status, one owner and one assignee, so no filter can repeat a row.
+
+    DISTINCT would make Postgres sort whole rows, joined users included, to remove nothing.
+    """
+    assert "DISTINCT" not in str(filtered(owner, params).query)
