@@ -6,16 +6,20 @@ JavaScript never sees it and the browser sends it nowhere else. These views read
 token (simplejwt's views have no authentication classes), so an expired one can't block them.
 """
 
+from contextlib import suppress
 from typing import Any
 
 from django.conf import settings
 from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
-from rest_framework import exceptions, serializers
+from rest_framework import exceptions, serializers, status
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.settings import api_settings as jwt_settings
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.models import User
@@ -129,4 +133,37 @@ class RefreshView(_ParsesTheBodyFirst, TokenRefreshView):
             ) from error
         response = Response({"access": serializer.validated_data["access"]})
         set_refresh_cookie(response, serializer.validated_data["refresh"])
+        return response
+
+
+class LogoutView(_ParsesTheBodyFirst, APIView):
+    """POST /api/auth/logout/: blacklists the cookie's refresh token and clears the cookie.
+
+    The client wants to be signed out whatever state its cookie is in, so this always answers
+    204 and clears it (ADR 0014). It reads no access token: the cookie is what it revokes.
+    The access token isn't revoked; it expires within 5 minutes, and the frontend drops it.
+    """
+
+    authentication_classes = ()
+    permission_classes = (AllowAny,)
+
+    @extend_schema(
+        summary="Log out",
+        description=(
+            "Revokes the refresh token in the refresh_token cookie and clears the cookie. "
+            "Always 204, even without a valid cookie. No request body."
+        ),
+        request=None,
+        responses={204: OpenApiResponse(description="Signed out."), **error_responses(415, 429)},
+    )
+    def post(self, request: Request) -> Response:
+        token = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
+        # Expired, malformed or already revoked: there's nothing left to revoke.
+        if token:
+            with suppress(TokenError):
+                RefreshToken(token).blacklist()
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        response.delete_cookie(
+            settings.REFRESH_COOKIE_NAME, path=settings.REFRESH_COOKIE_PATH, samesite="Strict"
+        )
         return response
