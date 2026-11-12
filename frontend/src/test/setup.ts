@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { checkConsole, installConsoleGuard } from './console'
 import { server } from './server'
@@ -23,6 +23,11 @@ class ResizeObserverStub implements ResizeObserver {
   disconnect(): void {}
 }
 window.ResizeObserver = ResizeObserverStub
+
+// findBy* waits up to 3 s instead of 1 s. Task pages load lazily (ADR 0018), and the first test
+// to open one also waits for Vite to transform its module, which can pass 1 s on a busy
+// machine. A test that passes doesn't wait any longer.
+configure({ asyncUtilTimeout: 3000 })
 
 const original = { error: console.error, warn: console.warn }
 
