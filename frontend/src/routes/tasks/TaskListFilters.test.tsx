@@ -15,8 +15,11 @@ function openList(path = '/tasks') {
 }
 
 // On a narrow screen, as in every test here unless it says otherwise, the filters fold away.
+// The panel shows a render after the click (Mantine's Collapse keeps it in React's Activity),
+// so this waits until its fields can be seen.
 async function openFilters() {
   await userEvent.click(await screen.findByRole('button', { name: /^Filters/ }))
+  await screen.findByRole('group', { name: 'Status' })
 }
 
 afterEach(() => {
@@ -120,10 +123,10 @@ describe('on a narrow screen', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false')
     // The search box stays out, where it can be reached at once.
     expect(screen.getByRole('searchbox', { name: 'Search titles' })).toBeVisible()
+    expect(screen.queryByRole('group', { name: 'Status' })).not.toBeInTheDocument()
     await userEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-expanded', 'true')
-    expect(
-      within(screen.getByRole('group', { name: 'Status' })).getAllByRole('checkbox'),
-    ).toHaveLength(3)
+    const status = await screen.findByRole('group', { name: 'Status' })
+    expect(within(status).getAllByRole('checkbox')).toHaveLength(3)
   })
 })
