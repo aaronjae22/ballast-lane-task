@@ -98,3 +98,47 @@ describe('unwrap', () => {
     )
   })
 })
+
+describe('query parameters', () => {
+  const emptyPage: Schemas['PaginatedTaskList'] = {
+    count: 0,
+    next: null,
+    previous: null,
+    results: [],
+  }
+
+  async function listTasks(query: {
+    ordering?: ('status' | '-due_date' | 'created_at')[]
+    status?: ('to_do' | 'in_progress' | 'done')[]
+  }): Promise<URLSearchParams> {
+    let url: URL | undefined
+    server.use(
+      http.get(apiUrl('/api/tasks/'), ({ request }) => {
+        url = new URL(request.url)
+        return HttpResponse.json(emptyPage)
+      }),
+    )
+    await createApiClient().GET('/api/tasks/', { params: { query } })
+    if (!url) throw new Error('the request never reached the API')
+    return url.searchParams
+  }
+
+  it('sends ordering as one comma-separated parameter, as the schema declares', async () => {
+    const params = await listTasks({ ordering: ['status', '-due_date'] })
+
+    expect(params.getAll('ordering')).toEqual(['status,-due_date'])
+  })
+
+  it('repeats status once per value, as the schema declares', async () => {
+    const params = await listTasks({ status: ['to_do', 'done'] })
+
+    expect(params.getAll('status')).toEqual(['to_do', 'done'])
+  })
+
+  it('serializes both styles in one request', async () => {
+    const params = await listTasks({ ordering: ['created_at'], status: ['in_progress'] })
+
+    expect(params.getAll('ordering')).toEqual(['created_at'])
+    expect(params.getAll('status')).toEqual(['in_progress'])
+  })
+})
