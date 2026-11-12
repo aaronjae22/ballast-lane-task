@@ -17,7 +17,9 @@ Team Task Board: a task management REST API (Django + DRF) with a React + TypeSc
 
 Created in iteration 0. Whoever adds or changes a command updates this list in the same commit.
 
-- Whole stack: `docker compose up --build` (no `.env` needed; `.env.example` lists the overrides). Postgres is published on host port 5433, Mailpit's UI on http://localhost:8025
+- Whole stack: `docker compose up --build` (no `.env` needed; `.env.example` lists the overrides). Postgres is published on host port 5433, Mailpit's UI on http://localhost:8025. The backend migrates and seeds the demo data (README credentials). The worker and beat don't reload: run `docker compose restart worker beat` after a code change
+  - Trigger the due-tomorrow reminder by hand: `docker compose exec worker celery -A config call tasks.send_due_tomorrow_reminders`
+  - Seed again (creates nothing if the data is there): `docker compose exec backend python manage.py seed_demo`. Start over with `docker compose down -v`
 - Backend prod image: `docker build --target prod backend/`
 - Backend (run from `backend/`):
   - Install: `uv sync`
@@ -25,6 +27,12 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Lint and format: `uv run ruff check .` and `uv run ruff format .` (CI runs `uv run ruff format --check .`)
   - Architecture contracts: `uv run lint-imports`
   - Django: `DJANGO_DEBUG=true uv run python manage.py <command>` (with DEBUG off, the settings refuse the built-in secret key; set `DJANGO_SECRET_KEY` instead). On a host without Redis, add `DJANGO_CACHE=locmem`: the throttles need a cache
+  - Demo data: `DJANGO_DEBUG=true uv run python manage.py seed_demo` (idempotent; the password is `SEED_DEMO_PASSWORD` or `demo-password`)
+  - Background jobs on the host need Redis and Mailpit: `brew install redis mailpit`, then `brew services start redis` and `brew services start mailpit` (SMTP on 1025, UI on http://localhost:8025). In separate terminals, with the same `DJANGO_DEBUG=true` and `DATABASE_URL` as runserver:
+    - Worker: `uv run celery -A config worker --loglevel=info`
+    - Beat (exactly one): `uv run celery -A config beat --loglevel=info`. Its schedule file goes to the system temp dir
+    - Trigger the reminder by hand: `uv run celery -A config call tasks.send_due_tomorrow_reminders`
+  - Tests never need Redis, a worker or an SMTP server: jobs run in-process and mail goes to Django's in-memory outbox
 - Frontend (run from `frontend/`, from iteration 5): `npm ci`, `npm run dev`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run gen:api`
 - pre-commit (from the repo root; needs `uv sync` in `backend/` first):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
