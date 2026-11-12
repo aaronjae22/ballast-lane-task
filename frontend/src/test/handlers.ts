@@ -52,3 +52,30 @@ export function refreshAnswers(...answers: (number | string)[]) {
   })
   return { handler, count: () => received }
 }
+
+export const users = {
+  alice: { id: 1, username: 'alice', name: 'Alice Johnson', is_admin: false },
+  bob: { id: 2, username: 'bob', name: 'Bob Smith', is_admin: false },
+} satisfies Record<string, Schemas['CurrentUser']>
+
+/**
+ * A small fake of the real auth flow for whole-app tests: logging in as `alice` or `bob`
+ * gives the token `<username>-token`, and /api/users/me/ answers with the user that token
+ * belongs to, or 401.
+ */
+export function signedInAs() {
+  return [
+    http.post(apiUrl('/api/auth/token/'), async ({ request }) => {
+      const { username } = (await request.json()) as Schemas['LoginRequest']
+      return HttpResponse.json({ access: `${username}-token` } satisfies Schemas['AccessToken'])
+    }),
+    http.get(apiUrl('/api/users/me/'), ({ request }) => {
+      const header = request.headers.get('Authorization')
+      const user = Object.values(users).find((u) => header === `Bearer ${u.username}-token`)
+      if (user) return HttpResponse.json(user)
+      return HttpResponse.json({ detail: 'Token is invalid' } satisfies Schemas['Error'], {
+        status: 401,
+      })
+    }),
+  ]
+}

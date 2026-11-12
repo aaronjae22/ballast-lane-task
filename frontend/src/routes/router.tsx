@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router'
 import { RequireAuth } from '../auth/RequireAuth'
+import { AppLayout } from '../components/AppLayout'
 import { HomePage } from './HomePage'
 import { LoginPage } from './LoginPage'
 import { NotFoundPage } from './NotFoundPage'
@@ -12,7 +13,13 @@ export function createRoutes(): RouteObject[] {
       errorElement: <RouteError />,
       children: [
         { path: '/login', element: <LoginPage /> },
-        { path: '/', element: <RequireAuth />, children: [{ index: true, element: <HomePage /> }] },
+        {
+          path: '/',
+          element: <RequireAuth />,
+          children: [
+            { element: <AppLayout />, children: [{ index: true, element: <HomePage /> }] },
+          ],
+        },
         { path: '*', element: <NotFoundPage /> },
       ],
     },
