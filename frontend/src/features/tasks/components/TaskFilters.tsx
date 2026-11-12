@@ -1,8 +1,23 @@
-import { Group, Select, TextInput } from '@mantine/core'
-import { useDebouncedCallback } from '@mantine/hooks'
-import { useState } from 'react'
-import type { Ordering, TaskFilters as Filters } from '../filters'
+import {
+  Button,
+  Chip,
+  Collapse,
+  Group,
+  SegmentedControl,
+  Select,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core'
+import { DatePickerInput } from '@mantine/dates'
+import { useDebouncedCallback, useDisclosure } from '@mantine/hooks'
+import { useId, useState, type ReactNode } from 'react'
+import { useActiveUsers } from '../../users/hooks/useActiveUsers'
+import { statuses, type Ordering, type TaskFilters as Filters } from '../filters'
 import type { TaskFiltersState } from '../hooks/useTaskFilters'
+import { useWideScreen } from '../hooks/useWideScreen'
+import { statusLabels } from './TaskStatusBadge'
 
 // The API's default order is the soonest due date (ADR 0014), so that choice sends nothing.
 const defaultOrdering = 'due_date'
@@ -20,32 +35,158 @@ interface TaskFiltersProps {
   setFilters: TaskFiltersState['setFilters']
 }
 
-/** The controls above the list. Each one writes to the URL; none keeps a filter of its own. */
+/**
+ * The controls above the list. Each one writes to the URL; none keeps a filter of its own.
+ * Search and order always show. Below the `sm` breakpoint the filters fold behind a button
+ * that counts the active ones, so the list isn't pushed off a phone's screen (ADR 0018).
+ */
 export function TaskFilters({ filters, setFilters }: TaskFiltersProps) {
+  const wide = useWideScreen()
+  const [opened, { toggle }] = useDisclosure(false)
+  const panelId = useId()
+  const active = [
+    filters.status.length > 0,
+    filters.due_after !== null,
+    filters.due_before !== null,
+    filters.overdue !== null,
+    filters.assignee !== null,
+  ].filter(Boolean).length
+  const fields = <FilterFields filters={filters} setFilters={setFilters} />
+
   return (
-    <Group align="flex-end" gap="sm" wrap="wrap">
-      <SearchBox
-        value={filters.search}
-        onSearch={(search) => {
-          if (search === filters.search) return
-          // Starting a search adds a history entry, so Back undoes it. Refining or clearing
-          // one replaces that entry, so Back doesn't step through every pause in typing.
-          setFilters({ search }, { replace: filters.search !== '' })
-        }}
-      />
+    <Stack gap="sm">
+      <Group align="flex-end" gap="sm" wrap="wrap">
+        <SearchBox
+          value={filters.search}
+          onSearch={(search) => {
+            if (search === filters.search) return
+            // Starting a search adds a history entry, so Back undoes it. Refining or clearing
+            // one replaces that entry, so Back doesn't step through every pause in typing.
+            setFilters({ search }, { replace: filters.search !== '' })
+          }}
+        />
+        <Select
+          label="Order"
+          data={orderingOptions}
+          value={filters.ordering ?? defaultOrdering}
+          allowDeselect={false}
+          onChange={(value) => {
+            const ordering = orderingOptions.find((option) => option.value === value)?.value
+            if (ordering === undefined) return
+            setFilters({ ordering: ordering === defaultOrdering ? null : ordering })
+          }}
+          w={{ base: '100%', xs: 240 }}
+        />
+        {!wide && (
+          <Button variant="default" onClick={toggle} aria-expanded={opened} aria-controls={panelId}>
+            {active > 0 ? `Filters (${String(active)})` : 'Filters'}
+          </Button>
+        )}
+      </Group>
+      {wide ? (
+        fields
+      ) : (
+        <Collapse expanded={opened} id={panelId}>
+          {fields}
+        </Collapse>
+      )}
+    </Stack>
+  )
+}
+
+function FilterFields({ filters, setFilters }: TaskFiltersProps) {
+  const users = useActiveUsers()
+  const assignees = [
+    { value: 'me', label: 'Me' },
+    ...(users.data ?? []).map((user) => ({ value: String(user.id), label: user.name })),
+  ]
+  // A link can name a user who isn't active any more, or isn't in the list yet: still show
+  // the value, rather than an empty box that hides an active filter (ADR 0018).
+  const assignee = filters.assignee === null ? null : String(filters.assignee)
+  if (assignee !== null && !assignees.some((option) => option.value === assignee)) {
+    assignees.push({ value: assignee, label: `User #${assignee}` })
+  }
+
+  return (
+    <SimpleGrid cols={{ base: 1, xs: 2, md: 3 }} spacing="sm">
+      <Field label="Status">
+        <Chip.Group
+          multiple
+          value={filters.status}
+          onChange={(values) => {
+            setFilters({ status: statuses.filter((status) => values.includes(status)) })
+          }}
+        >
+          <Group gap="xs">
+            {statuses.map((status) => (
+              <Chip key={status} value={status} size="sm">
+                {statusLabels[status]}
+              </Chip>
+            ))}
+          </Group>
+        </Chip.Group>
+      </Field>
+      <Field label="Overdue">
+        <SegmentedControl
+          fullWidth
+          data={[
+            { value: 'any', label: 'Any' },
+            { value: 'true', label: 'Overdue' },
+            { value: 'false', label: 'Not overdue' },
+          ]}
+          value={filters.overdue === null ? 'any' : String(filters.overdue)}
+          onChange={(value) => {
+            setFilters({ overdue: value === 'any' ? null : value === 'true' })
+          }}
+        />
+      </Field>
       <Select
-        label="Order"
-        data={orderingOptions}
-        value={filters.ordering ?? defaultOrdering}
-        allowDeselect={false}
+        label="Assignee"
+        placeholder="Anyone"
+        clearable
+        data={assignees}
+        value={assignee}
         onChange={(value) => {
-          const ordering = orderingOptions.find((option) => option.value === value)?.value
-          if (ordering === undefined) return
-          setFilters({ ordering: ordering === defaultOrdering ? null : ordering })
+          setFilters({ assignee: value === null ? null : value === 'me' ? 'me' : Number(value) })
         }}
-        w={{ base: '100%', xs: 240 }}
       />
-    </Group>
+      {/* Due dates stay YYYY-MM-DD strings from the picker to the API (ADR 0018). */}
+      <DatePickerInput
+        label="Due from"
+        placeholder="Any day"
+        clearable
+        clearButtonProps={{ 'aria-label': 'Clear due from' }}
+        valueFormat="MMM D, YYYY"
+        value={filters.due_after}
+        onChange={(due_after) => {
+          setFilters({ due_after })
+        }}
+      />
+      <DatePickerInput
+        label="Due until"
+        placeholder="Any day"
+        clearable
+        clearButtonProps={{ 'aria-label': 'Clear due until' }}
+        valueFormat="MMM D, YYYY"
+        value={filters.due_before}
+        onChange={(due_before) => {
+          setFilters({ due_before })
+        }}
+      />
+    </SimpleGrid>
+  )
+}
+
+/** A labelled group of controls that have no label of their own, such as chips. */
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  const labelId = useId()
+  return (
+    <Stack gap={4} role="group" aria-labelledby={labelId}>
+      <Text id={labelId} size="sm" fw={500}>
+        {label}
+      </Text>
+      {children}
+    </Stack>
   )
 }
 
