@@ -1,4 +1,7 @@
-"""The task admin is read-only: it writes straight to the model, skipping every domain rule."""
+"""The task admin is read-only, and reads through visible_tasks like every other task read.
+
+It writes straight to the model, which would skip every domain rule, so it may not write.
+"""
 
 import pytest
 from django.contrib import admin
@@ -81,3 +84,34 @@ def test_tasks_cannot_be_deleted(admin_client: Client, row: Task) -> None:
 
     assert response.status_code == 403
     assert Task.objects.filter(pk=row.pk).exists()
+
+
+# Reads go through visible_tasks (Codex review of #16). Staff are admins today (ADR 0013), so
+# both reads would return every task; patching is_admin shows the admin follows the selector.
+
+
+@pytest.fixture
+def staff_not_admin(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Staff users stop counting as admins, as if the definition in ADR 0013 changed."""
+    monkeypatch.setattr(User, "is_admin", property(lambda user: False))
+
+
+def test_the_list_shows_only_the_tasks_visible_to_the_user(
+    admin_client: Client, admin_user: User, row: Task, staff_not_admin: None
+) -> None:
+    own = Task.objects.create(
+        title="Mine", owner=admin_user, created_at=EARLIER, updated_at=EARLIER
+    )
+
+    response = admin_client.get(reverse(CHANGELIST))
+
+    assert [task.pk for task in response.context["cl"].result_list] == [own.pk]
+
+
+def test_a_task_the_user_cannot_see_has_no_detail_page(
+    admin_client: Client, row: Task, staff_not_admin: None
+) -> None:
+    response = admin_client.get(reverse("admin:tasks_task_change", args=[row.pk]))
+
+    assert response.status_code == 302
+    assert response.url == reverse("admin:index")
