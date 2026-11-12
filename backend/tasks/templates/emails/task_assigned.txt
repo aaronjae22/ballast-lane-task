@@ -1,0 +1,11 @@
+{% autoescape off %}Hi {{ assignee.display_name }},
+
+You've been assigned a task on the Team Task Board.
+
+Task:   {{ task.title }}
+Due:    {% if task.due_date %}{{ task.due_date|date:"l, j F Y" }}{% else %}No due date{% endif %}
+Status: {{ task.get_status_display }}
+Owner:  {{ task.owner.display_name }}
+{% if task.description %}
+{{ task.description }}
+{% endif %}{% endautoescape %}
