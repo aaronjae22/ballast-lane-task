@@ -19,6 +19,25 @@ export default defineConfig({
       '/api': { target: apiTarget, changeOrigin: false },
     },
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        // The pages are split by route already (router.tsx). The libraries every page needs
+        // go in chunks of their own, so no chunk passes Vite's 500 kB warning, and an app
+        // change doesn't make browsers download React or Mantine again (ADR 0018).
+        codeSplitting: {
+          groups: [
+            { name: 'mantine', test: /node_modules[\\/]@mantine[\\/]/ },
+            {
+              name: 'react',
+              test: /node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/,
+            },
+            { name: 'vendor', test: /node_modules[\\/]/ },
+          ],
+        },
+      },
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
