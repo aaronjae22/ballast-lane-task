@@ -2,7 +2,6 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, renderHook, screen } from '@testing-library/react'
 import { StrictMode, type ReactNode } from 'react'
 import { describe, expect, it } from 'vitest'
-import { expectConsole } from '../test/console'
 import { logoutSucceeds, refreshAnswers } from '../test/handlers'
 import { createTestQueryClient } from '../test/queryClient'
 import { server } from '../test/server'
@@ -79,8 +78,7 @@ describe('AuthProvider', () => {
 
 describe('useAuth', () => {
   it('outside the provider throws an error that says where it belongs', () => {
-    expectConsole('error', /inside <AuthProvider>/)
-
+    // React 19 rethrows a render error to renderHook's caller without logging it.
     expect(() => renderHook(() => useAuth())).toThrow(/inside <AuthProvider>/)
   })
 })
