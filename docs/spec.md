@@ -43,7 +43,7 @@ A small team shares a task board.
 | `status` | `to_do`, `in_progress`, `done` |
 | `due_date` | Optional date; can't be set to a date in the past (tasks already overdue stay valid) |
 | `owner` | Whoever created the task; never changes |
-| `assignee` | Optional; must be an active user |
+| `assignee` | Optional, also when the task is created; must be an active user |
 | `completed_at` | Set when completed, cleared when reopened |
 | `created_at`, `updated_at` | Automatic |
 
@@ -70,6 +70,12 @@ Any other transition raises `InvalidTransition` (HTTP 409).
 | Delete | ✓ | 403 | ✓ | 404 |
 
 A task you can't see returns 404, not 403, so the API doesn't reveal that it exists.
+
+Any signed-in user can create a task and becomes its owner, with or without an assignee.
+
+### Assignment email
+
+The assignee gets an email only when the assignee changes to someone other than the person making the change: a task created with someone else as its assignee, or assigned or reassigned to someone else. There's no email for self-assignment, for unassigning, or for reassigning a task to the person who already has it.
 
 ## 4. Architecture
 
@@ -111,7 +117,7 @@ backend/
 | POST | `/api/auth/logout/` | Blacklists refresh token, clears cookie |
 | GET | `/api/users/` | Active users (id, name) for the assignee picker |
 | GET | `/api/users/me/` | Current user |
-| GET, POST | `/api/tasks/` | Paginated. Filters: `status` (multiple), `due_after`, `due_before`, `overdue`, `assignee` (`me` or id), `search` (title). Ordering: `due_date`, `created_at`, `status` |
+| GET, POST | `/api/tasks/` | Paginated. Filters: `status` (multiple), `due_after`, `due_before`, `overdue`, `assignee` (`me` or id), `search` (title). Ordering: `due_date`, `created_at`, `status`. POST accepts an optional `assignee_id` |
 | GET, PATCH, DELETE | `/api/tasks/{id}/` | PATCH for title, description, due date only |
 | POST | `/api/tasks/{id}/assign/` | Body: `{"assignee_id": int \| null}` |
 | POST | `/api/tasks/{id}/start/`, `/complete/`, `/reopen/` | Status transitions |
@@ -132,7 +138,7 @@ See [ADR 0006](adr/0006-jwt-refresh-cookie-same-origin.md).
 ## 7. Rate limiting and background jobs
 
 - **Throttles** (DRF, stored in the Redis cache so limits hold across processes): anonymous 30/min, authenticated 120/min, `auth` scope 5/min. Returns 429 with `Retry-After`; the frontend shows a friendly message.
-- **Assignment email:** the `Notifier` adapter queues a Celery task inside `transaction.on_commit`, so a rolled-back assignment never sends an email.
+- **Assignment email** (only when the assignee changes to someone else; see section 3): the `Notifier` adapter queues a Celery task inside `transaction.on_commit`, so a rolled-back assignment never sends an email.
 - **Due-tomorrow reminders:** Celery Beat runs a daily task that emails each assignee a digest of their tasks due tomorrow.
 - **Mailpit** in docker-compose catches all email locally (web UI on port 8025).
 - **Demo data:** `manage.py seed_demo` is idempotent. It creates an admin, three users with known passwords, and about 25 tasks across every status and due-date bucket (overdue, today, tomorrow, next week, none), so every filter shows results.
@@ -229,11 +235,12 @@ Separate roles, and no agent reviews its own work. See [ADR 0010](adr/0010-ai-wo
 
 **Per iteration:**
 
-1. Branch `iter/NN-name`; the opening prompt is saved to `docs/ai/prompts/NN-name.md`.
-2. The agent commits at checkpoints (failing tests written, implementation passing). Every commit waits for my approval and carries a `Co-Authored-By: Claude` trailer, added automatically by `.claude/settings.json`.
-3. My corrections follow as separate commits without the trailer, each saying what was wrong.
-4. Open a PR; Codex reviews automatically; P0/P1 findings get fixed by me or the builder, never by the reviewer.
-5. Merge with a merge commit.
+1. One prompt per iteration, saved to `docs/ai/prompts/NN-name.md` and pasted into a fresh Claude Code session in plan mode.
+2. The agent plans before writing anything: the iteration split into small PRs (about 300 changed lines or fewer, not counting `uv.lock` and migrations), each on its own branch `task/<iteration>-<NN>-<name>` from an up-to-date `main`, with every commit listed. I review the plan with Claude in chat before approving it.
+3. Tiny commits, one concern each (failing tests, then the implementation that passes them). Every commit waits for my approval and carries a `Co-Authored-By: Claude` trailer, added automatically by `.claude/settings.json`.
+4. My corrections follow as separate commits without the trailer, each saying what was wrong.
+5. The agent pushes each branch and opens its PR; both wait for my approval. Codex reviews automatically; P0/P1 findings get fixed by me or the builder, never by the reviewer.
+6. I merge with a merge commit once CI is green and the review is addressed.
 
 **The headline prompt** ([`docs/ai/prompts/01-scaffold.md`](ai/prompts/01-scaffold.md)) generates the scaffold, not the full implementation. One prompt for everything would skip test-first development and produce more code than can be reviewed carefully; per-iteration prompts keep each output small enough to validate.
 
