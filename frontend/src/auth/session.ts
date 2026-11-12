@@ -103,10 +103,72 @@ export function createSession({ authClient }: SessionOptions): Session {
     }
   }
 
+  let refreshing: Promise<RefreshOutcome> | null = null
+  let restoring: Promise<RefreshOutcome> | null = null
+
+  // One request to the refresh endpoint, read as what it means for the session.
+  async function askForToken(): Promise<
+    { kind: 'token'; access: string } | { kind: 'refused' | 'no cookie' | 'unavailable' }
+  > {
+    let result
+    try {
+      result = await authClient.POST('/api/auth/token/refresh/')
+    } catch {
+      return { kind: 'unavailable' }
+    }
+    const { status } = result.response
+    if (status === 204) return { kind: 'no cookie' }
+    if (result.data) return { kind: 'token', access: result.data.access }
+    if (status === 401) return { kind: 'refused' }
+    return { kind: 'unavailable' }
+  }
+
+  async function runRefresh(): Promise<RefreshOutcome> {
+    const startedIn = generation
+    let answer = await askForToken()
+    // Another tab may have rotated the cookie a moment ago, and the browser now holds the new
+    // one, so one retry can succeed (ADR 0014).
+    if (answer.kind === 'refused') answer = await askForToken()
+    // Logged out meanwhile: logout waited for this refresh and revokes the cookie it set.
+    if (generation !== startedIn) return 'rejected'
+    if (answer.kind === 'token') {
+      accessToken = answer.access
+      setStatus('authenticated')
+      return 'refreshed'
+    }
+    if (answer.kind === 'unavailable') return 'unavailable'
+    accessToken = null
+    setStatus('anonymous')
+    return 'rejected'
+  }
+
+  function refresh(): Promise<RefreshOutcome> {
+    refreshing ??= runRefresh().finally(() => {
+      refreshing = null
+    })
+    return refreshing
+  }
+
+  async function settleRestore(): Promise<RefreshOutcome> {
+    const outcome = await refresh()
+    // Only a restore turns "can't reach the server" into a status. Later refreshes keep the
+    // session, so a server blip doesn't sign anyone out.
+    if (outcome === 'unavailable') setStatus('unavailable')
+    return outcome
+  }
+
   return {
-    restore: () => Promise.reject(new Error('not implemented')),
-    retryRestore: () => Promise.reject(new Error('not implemented')),
-    refresh: () => Promise.reject(new Error('not implemented')),
+    restore() {
+      restoring ??= settleRestore()
+      return restoring
+    },
+
+    retryRestore() {
+      setStatus('restoring')
+      return settleRestore()
+    },
+
+    refresh,
 
     getState: () => state,
 
@@ -154,6 +216,9 @@ export function createSession({ authClient }: SessionOptions): Session {
       // started before can tell from the generation (ADR 0016).
       generation += 1
       accessToken = null
+      // A refresh in flight would set a newer cookie than the one logout revokes. Wait for it
+      // (it never rejects), so the revoked cookie is the newest one.
+      if (refreshing) await refreshing
       await revokeRefreshCookie()
       setStatus('anonymous')
     },
