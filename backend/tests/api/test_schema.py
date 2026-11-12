@@ -125,3 +125,69 @@ def test_logout_documents_its_empty_answer_and_no_token(client: Client) -> None:
     assert "content" not in logout["responses"]["204"]
     assert "requestBody" not in logout
     assert {"jwtAuth": []} not in logout.get("security", [])
+
+
+def list_parameters(client: Client) -> dict[str, dict]:
+    parameters = schema(client)["paths"]["/api/tasks/"]["get"]["parameters"]
+    return {parameter["name"]: parameter for parameter in parameters}
+
+
+def test_every_list_filter_is_documented_with_its_help_text(client: Client) -> None:
+    from tasks.api.filters import TaskFilter
+
+    parameters = list_parameters(client)
+
+    for name, task_filter in TaskFilter.base_filters.items():
+        # drf-spectacular appends the list of choices to a choice filter's description.
+        assert parameters[name]["description"].startswith(task_filter.extra["help_text"]), name
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        (
+            "status",
+            {
+                "type": "array",
+                "items": {"type": "string", "enum": ["done", "in_progress", "to_do"]},
+            },
+        ),
+        ("due_after", {"type": "string", "format": "date"}),
+        ("due_before", {"type": "string", "format": "date"}),
+        # The query string carries "true" or "false"; anything else is a 400 (ADR 0013).
+        ("overdue", {"type": "string", "enum": ["false", "true"]}),
+        ("assignee", {"type": "string"}),
+        ("search", {"type": "string"}),
+        ("page", {"type": "integer"}),
+        ("page_size", {"type": "integer"}),
+    ],
+)
+def test_each_list_parameter_has_the_type_it_takes(
+    client: Client, name: str, expected: dict
+) -> None:
+    assert list_parameters(client)[name]["schema"] == expected
+
+
+def test_ordering_lists_every_choice_in_both_directions(client: Client) -> None:
+    ordering = list_parameters(client)["ordering"]
+
+    assert ordering["schema"]["type"] == "array"
+    assert set(ordering["schema"]["items"]["enum"]) == {
+        "due_date",
+        "-due_date",
+        "created_at",
+        "-created_at",
+        "status",
+        "-status",
+    }
+    # Comma-separated, as one parameter: ?ordering=status,-due_date
+    assert ordering["explode"] is False
+
+
+def test_the_login_body_has_a_plain_component_name(client: Client) -> None:
+    """The frontend's generated types are named after the components (iteration 5)."""
+    login = schema(client)["paths"]["/api/auth/token/"]["post"]
+
+    body = login["requestBody"]["content"]["application/json"]["schema"]
+
+    assert body == {"$ref": "#/components/schemas/LoginRequest"}
