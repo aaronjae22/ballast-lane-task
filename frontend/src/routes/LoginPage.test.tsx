@@ -7,7 +7,7 @@ import { loginFails, loginSucceeds, loginUnreachable, refreshAnswers } from '../
 import { renderApp } from '../test/render'
 import { server } from '../test/server'
 
-const homeHeading = { name: 'Team Task Board' }
+const homeHeading = { name: 'Tasks' }
 
 async function openLoginPage(path = '/login') {
   server.use(refreshAnswers(204).handler)
@@ -69,13 +69,13 @@ describe('the login form', () => {
 
   it('goes back to the page the user was going to', async () => {
     server.use(loginSucceeds())
-    const { router } = await openLoginPage('/?view=mine')
+    const { router } = await openLoginPage('/tasks?status=done')
 
     await submit()
 
     expect(await screen.findByRole('heading', homeHeading)).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/')
-    expect(router.state.location.search).toBe('?view=mine')
+    expect(router.state.location.pathname).toBe('/tasks')
+    expect(router.state.location.search).toBe('?status=done')
   })
 
   it('goes to the home page when opened directly', async () => {
