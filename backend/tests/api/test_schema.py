@@ -234,3 +234,17 @@ def test_assign_documents_its_own_body_answers_and_name(client: Client) -> None:
     assert set(assign["responses"]) == {"200", "400", "401", "403", "404", "429"}
     assert component["required"] == ["assignee_id"]
     assert component["properties"]["assignee_id"]["nullable"] is True
+
+
+@pytest.mark.parametrize("action", ["start", "complete", "reopen"])
+def test_each_status_change_documents_no_body_and_its_own_answers(
+    client: Client, action: str
+) -> None:
+    operation = schema(client)["paths"][f"/api/tasks/{{id}}/{action}/"]["post"]
+
+    assert operation["operationId"] == f"tasks_{action}"
+    assert "requestBody" not in operation
+    assert set(operation["responses"]) == {"200", "400", "401", "404", "409", "429"}
+    assert operation["responses"]["409"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Error"
+    }
