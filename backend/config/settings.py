@@ -224,7 +224,7 @@ SPECTACULAR_SETTINGS = {
 
 # Logging. Django configures only its own "django" logger, so without this the project's
 # loggers fall back to Python's last-resort handler, which drops everything below WARNING.
-# The tasks loggers (LoggingNotifier among them) write INFO and up to stderr, which
+# The tasks loggers (the jobs' skipped emails among them) write INFO and up to stderr, which
 # runserver, Gunicorn and Docker all show.
 
 LOGGING = {
