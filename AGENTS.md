@@ -38,6 +38,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Dev server: `npm run dev` (http://localhost:5173)
   - Type check: `npm run typecheck`. Build: `npm run build`
   - Lint and format check: `npm run lint` (ESLint with type information, then `prettier --check`). Format: `npm run format`
+  - Tests: `npm test` (Vitest, once) or `npm run test:watch`. A test fails if it logs a console warning or error it didn't declare with `expectConsole`
 - pre-commit (from the repo root; needs `uv sync` in `backend/` first):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
   - All hooks: `uv run --project backend pre-commit run --all-files`
