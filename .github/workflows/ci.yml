@@ -226,6 +226,41 @@ jobs:
           done
           echo "Expected digests for $expected, found: $to"; exit 1
 
+      # spec 10 and 13 (iteration 5): the app is served on 5173, and Vite proxies /api to the
+      # backend, so the browser sees one origin (ADR 0006).
+      - name: Check that the frontend serves the app on 5173
+        run: |
+          page=$(curl --fail --silent --show-error --retry 10 --retry-all-errors \
+            --retry-delay 3 http://localhost:5173/)
+          echo "$page" | grep -q '<div id="root"></div>'
+          echo "The frontend serves the app."
+
+      # Through the proxy, and with Host: localhost:5173, which Django must accept (ADR 0016).
+      - name: Check that the frontend proxies /api to the backend
+        run: |
+          body=$(curl --fail --silent --show-error http://localhost:5173/api/health/)
+          echo "$body"
+          test "$body" = '{"status":"ok"}'
+
+      # The refresh cookie must survive the proxy with its attributes (ADRs 0006, 0014), and a
+      # refresh with it must work through the proxy too.
+      - name: Check that a login through the proxy sets the refresh cookie, and refresh works
+        run: |
+          frontend=http://localhost:5173/api/auth
+          headers=$(curl --fail --silent --show-error --dump-header - --output /dev/null \
+            --cookie-jar cookies.txt -X POST "$frontend/token/" \
+            -H "Content-Type: application/json" \
+            -d '{"username": "alice", "password": "demo-password"}')
+          cookie=$(echo "$headers" | grep -i '^set-cookie: refresh_token=')
+          echo "$cookie"
+          echo "$cookie" | grep -qi 'httponly'
+          echo "$cookie" | grep -qi 'samesite=strict'
+          echo "$cookie" | grep -qi 'path=/api/auth/'
+          refresh_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --cookie cookies.txt -X POST "$frontend/token/refresh/")
+          echo "Refresh through the proxy: $refresh_status"
+          test "$refresh_status" = "200"
+
       - name: Show compose logs
         if: failure()
         run: docker compose logs
