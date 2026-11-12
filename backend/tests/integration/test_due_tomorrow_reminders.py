@@ -6,7 +6,7 @@ user with the day as an ISO date, so a failed send retries one person's digest, 
 django.utils.timezone.now, as the Clock's own tests do. Jobs run in-process: no broker.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import UTC, date, datetime
 from unittest import mock
 
@@ -184,15 +184,24 @@ def test_a_digest_retries_a_failing_send_like_the_assignment_email() -> None:
     assert send_due_tomorrow_digest.name == "tasks.send_due_tomorrow_digest"
 
 
+@pytest.fixture
+def eager() -> Iterator[None]:
+    """Run queued jobs in-process for one test. Never set globally (ADR 0015).
+
+    Not monkeypatch: Celery's conf answers defaults it doesn't store, so monkeypatch would try
+    to delete the attribute on teardown and fail.
+    """
+    previous = celery_app.conf.task_always_eager
+    celery_app.conf.task_always_eager = True
+    yield
+    celery_app.conf.task_always_eager = previous
+
+
+@pytest.mark.usefixtures("eager")
 def test_from_beat_to_the_outbox(
-    monkeypatch: pytest.MonkeyPatch,
-    settings: Settings,
-    alice: User,
-    bob: User,
-    store_task: StoreTask,
+    settings: Settings, alice: User, bob: User, store_task: StoreTask
 ) -> None:
-    """The whole chain in-process: eager for this test only, never globally (ADR 0015)."""
-    monkeypatch.setattr(celery_app.conf, "task_always_eager", True)
+    """The whole chain in-process: Beat's job queues the digests, and each one is sent."""
     settings.TIME_ZONE = "UTC"
     store_task(bob, alice, due_date=THURSDAY)
     store_task(alice, bob, due_date=THURSDAY)
