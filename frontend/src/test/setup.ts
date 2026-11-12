@@ -4,7 +4,8 @@ import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { checkConsole, installConsoleGuard } from './console'
 import { server } from './server'
 
-// jsdom lacks two browser APIs Mantine uses: media queries and element resize events.
+// jsdom lacks three browser APIs Mantine uses: media queries, element resize events, and
+// scrollIntoView, which a Select calls to keep the highlighted option in view.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
@@ -23,6 +24,8 @@ class ResizeObserverStub implements ResizeObserver {
   disconnect(): void {}
 }
 window.ResizeObserver = ResizeObserverStub
+
+Element.prototype.scrollIntoView = () => undefined
 
 // findBy* waits up to 3 s instead of 1 s. Task pages load lazily (ADR 0018), and the first test
 // to open one also waits for Vite to transform its module, which can pass 1 s on a busy
