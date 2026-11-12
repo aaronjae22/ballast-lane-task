@@ -152,6 +152,26 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+# OpenAPI schema at /api/schema/, Swagger UI at /api/docs/ (ADRs 0005 and 0014). Both are
+# public. Swagger UI is pinned rather than @latest, and persistAuthorization stays off: it
+# would keep the token in localStorage.
+
+SWAGGER_UI_DIST = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.34.1"
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Team Task Board API",
+    "DESCRIPTION": "Tasks for a small team: create, assign and track them to done.",
+    "VERSION": "0.1.0",
+    "SCHEMA_PATH_PREFIX": "/api/",
+    # The schema describes the API, not itself.
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Separate request and response components, so generated types don't mark read-only
+    # fields as required inputs.
+    "COMPONENT_SPLIT_REQUEST": True,
+    "SWAGGER_UI_DIST": SWAGGER_UI_DIST,
+    "SWAGGER_UI_FAVICON_HREF": f"{SWAGGER_UI_DIST}/favicon-32x32.png",
+}
+
 # Static files
 
 STATIC_URL = "static/"
