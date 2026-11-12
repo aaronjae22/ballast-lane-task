@@ -106,6 +106,17 @@ class Task:
         self.title, self.description, self.due_date = new_title, new_description, new_due_date
         self.updated_at = now
 
+    def assign(self, assignee_id: int | None, *, assignee_is_active: bool, now: datetime) -> None:
+        """Assign, reassign, or unassign with None.
+
+        A new assignee must be an active user. Re-sending the current assignee is not a change,
+        so a task keeps an assignee who has since been deactivated.
+        """
+        if assignee_id != self.assignee_id:
+            _check_assignee(assignee_id, assignee_is_active)
+        self.assignee_id = assignee_id
+        self.updated_at = now
+
     def start(self, *, now: datetime) -> None:
         self._transition("start", now)
 
