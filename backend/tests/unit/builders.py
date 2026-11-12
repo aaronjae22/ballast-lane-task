@@ -1,10 +1,14 @@
 """Shared values for unit tests: fixed dates and user ids, so no test reads a clock."""
 
 from datetime import UTC, date, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from tasks.domain.actor import Actor
 from tasks.domain.status import Status
 from tasks.domain.task import Task
+
+if TYPE_CHECKING:
+    from tests.unit.fakes import InMemoryTaskRepository
 
 TODAY = date(2026, 11, 11)
 YESTERDAY = TODAY - timedelta(days=1)
@@ -39,3 +43,9 @@ def make_task(**overrides: object) -> Task:
         "updated_at": EARLIER,
     }
     return Task(**(fields | overrides))
+
+
+def stored_task(repository: "InMemoryTaskRepository", **overrides: object) -> Task:
+    """Store a task owned by OWNER and assigned to ASSIGNEE, and return it with its id."""
+    fields: dict[str, object] = {"id": None, "owner_id": OWNER_ID, "assignee_id": ASSIGNEE_ID}
+    return repository.add(make_task(**(fields | overrides)))
