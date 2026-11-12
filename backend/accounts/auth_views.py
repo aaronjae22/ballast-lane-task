@@ -73,7 +73,8 @@ class LoginView(TokenObtainPairView):
             "wrong password, an unknown user and an inactive user all get the same 401."
         ),
         request=inline_serializer(
-            "LoginRequest",
+            # Split request components add "Request": the schema calls it LoginRequest.
+            "Login",
             {
                 "username": serializers.CharField(),
                 "password": serializers.CharField(style={"input_type": "password"}),
