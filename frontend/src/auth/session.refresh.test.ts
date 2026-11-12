@@ -206,3 +206,51 @@ describe('logout while a refresh is in flight', () => {
     expect(session.getState()).toEqual({ status: 'anonymous' })
   })
 })
+
+describe('refresh while a logout is in progress', () => {
+  // Codex review of #48: a refresh that starts after logout has bumped the generation passes
+  // the stale check, so it must not be sent at all.
+  function heldLogout() {
+    let release: () => void = () => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    server.use(
+      http.post(apiUrl('/api/auth/logout/'), async () => {
+        await held
+        return new HttpResponse(null, { status: 204 })
+      }),
+    )
+    return () => {
+      release()
+    }
+  }
+
+  it('sends no refresh request, and the token stays gone', async () => {
+    const session = await signedIn()
+    const refresh = refreshAnswers('access-2')
+    server.use(refresh.handler)
+    const release = heldLogout()
+
+    const logout = session.logout()
+    const outcome = await session.refresh()
+    release()
+    await logout
+
+    expect(outcome).toBe('rejected')
+    expect(refresh.count()).toBe(0)
+    expect(session.getAccessToken()).toBeNull()
+    expect(session.getState()).toEqual({ status: 'anonymous' })
+  })
+
+  it('refreshes again once the logout has finished', async () => {
+    const session = await signedIn()
+    server.use(logoutSucceeds())
+    await session.logout()
+    const refresh = refreshAnswers(204)
+    server.use(refresh.handler)
+
+    expect(await session.refresh()).toBe('rejected')
+    expect(refresh.count()).toBe(1)
+  })
+})
