@@ -221,3 +221,30 @@ def test_delete_documents_its_empty_answer_and_its_errors(client: Client) -> Non
 
     assert set(delete["responses"]) == {"204", "401", "403", "404", "429"}
     assert "content" not in delete["responses"]["204"]
+
+
+def test_assign_documents_its_own_body_answers_and_name(client: Client) -> None:
+    api = schema(client)
+    assign = api["paths"]["/api/tasks/{id}/assign/"]["post"]
+    body = assign["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    component = api["components"]["schemas"][body.rsplit("/", 1)[1]]
+
+    assert assign["operationId"] == "tasks_assign"
+    assert assign["requestBody"]["required"] is True
+    assert set(assign["responses"]) == {"200", "400", "401", "403", "404", "429"}
+    assert component["required"] == ["assignee_id"]
+    assert component["properties"]["assignee_id"]["nullable"] is True
+
+
+@pytest.mark.parametrize("action", ["start", "complete", "reopen"])
+def test_each_status_change_documents_no_body_and_its_own_answers(
+    client: Client, action: str
+) -> None:
+    operation = schema(client)["paths"][f"/api/tasks/{{id}}/{action}/"]["post"]
+
+    assert operation["operationId"] == f"tasks_{action}"
+    assert "requestBody" not in operation
+    assert set(operation["responses"]) == {"200", "400", "401", "404", "409", "429"}
+    assert operation["responses"]["409"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/Error"
+    }

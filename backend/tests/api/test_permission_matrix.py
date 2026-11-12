@@ -29,6 +29,19 @@ ENDPOINTS: dict[str, list[tuple[str, Status, Send, int]]] = {
     "edit": [
         ("edit", Status.TO_DO, lambda c, i, u: c.patch(f"/api/tasks/{i}/", {"title": "New"}), 200)
     ],
+    "assign": [
+        (
+            "assign",
+            Status.TO_DO,
+            lambda c, i, u: c.post(f"/api/tasks/{i}/assign/", {"assignee_id": u["admin"].pk}),
+            200,
+        )
+    ],
+    "change_status": [
+        ("start", Status.TO_DO, lambda c, i, u: c.post(f"/api/tasks/{i}/start/"), 200),
+        ("complete", Status.TO_DO, lambda c, i, u: c.post(f"/api/tasks/{i}/complete/"), 200),
+        ("reopen", Status.DONE, lambda c, i, u: c.post(f"/api/tasks/{i}/reopen/"), 200),
+    ],
     "delete": [("delete", Status.TO_DO, lambda c, i, u: c.delete(f"/api/tasks/{i}/"), 204)],
 }
 DENIED = {NOT_ALLOWED: 403, NOT_FOUND: 404}
@@ -36,10 +49,13 @@ DENIED = {NOT_ALLOWED: 403, NOT_FOUND: 404}
 CASES = [
     pytest.param(send, status, success, role, outcome, id=f"{name}-{role}-{outcome}")
     for action, outcomes in MATRIX.items()
-    if action in ENDPOINTS
     for name, status, send, success in ENDPOINTS[action]
     for role, outcome in zip(ROLES, outcomes, strict=True)
 ]
+
+
+def test_every_row_of_the_matrix_has_its_endpoints() -> None:
+    assert set(ENDPOINTS) == set(MATRIX)
 
 
 @pytest.mark.parametrize(("send", "status", "success", "role", "outcome"), CASES)

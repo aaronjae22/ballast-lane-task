@@ -96,3 +96,16 @@ class TaskUpdateSerializer(RejectUnknownFields):
         help_text="null clears it. A new date can't be in the past; re-sending the current "
         "one is always fine, so an overdue task stays editable.",
     )
+
+
+class AssignSerializer(RejectUnknownFields):
+    """POST /api/tasks/{id}/assign/. The key is required, so an empty body isn't an unassign."""
+
+    assignee_id = serializers.IntegerField(
+        allow_null=True,
+        help_text="An active user's id, from /api/users/, or null to unassign.",
+    )
+
+
+class NoBodySerializer(RejectUnknownFields):
+    """start, complete and reopen take no body: any field sent is a 400, not ignored."""
