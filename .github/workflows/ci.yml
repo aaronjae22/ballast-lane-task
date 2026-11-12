@@ -81,13 +81,14 @@ jobs:
         run: docker build --target prod --tag taskboard-backend:ci backend/
 
       # spec section 13: "docker compose up --build serves /api/health/". --wait
-      # fails if a container exits, e.g. when the entrypoint's migrate fails.
+      # blocks until the backend's healthcheck passes, and fails if a container
+      # exits (e.g. when the entrypoint's migrate fails).
       - name: Start the compose stack
         run: docker compose up --build --detach --wait --wait-timeout 180
 
       - name: Check that /api/health/ is ok
         run: |
-          body=$(curl --fail --silent --show-error --retry 10 --retry-connrefused \
+          body=$(curl --fail --silent --show-error --retry 10 --retry-all-errors \
             --retry-delay 3 http://localhost:8000/api/health/)
           echo "$body"
           test "$body" = '{"status":"ok"}'
