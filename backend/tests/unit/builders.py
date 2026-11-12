@@ -14,6 +14,8 @@ EARLIER = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 
 OWNER_ID = 1
 ASSIGNEE_ID = 2
+ADMIN_ID = 3
+OTHER_USER_ID = 4
 
 
 def make_task(**overrides: object) -> Task:
