@@ -2,9 +2,9 @@
 
 - **Iteration:** 0 (foundation)
 - **Tool:** Claude Code in VS Code, plan mode first
-- **Branch:** `iter/00-foundation`
+- **Branches:** `iter/00-foundation` (first run), then `task/00-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _commit and PR links added after the run_
+- **Result:** two runs. The first (branch `iter/00-foundation`, kept locally as `archive/iter-00-first-attempt`) was set aside; the restart landed as five PRs: [#2](https://github.com/aaronjae22/ballast-lane-task/pull/2) Python tooling, [#3](https://github.com/aaronjae22/ballast-lane-task/pull/3) architecture contracts, [#4](https://github.com/aaronjae22/ballast-lane-task/pull/4) Django project, [#5](https://github.com/aaronjae22/ballast-lane-task/pull/5) Docker, [#6](https://github.com/aaronjae22/ballast-lane-task/pull/6) health endpoint
 
 ## Why the prompt is written this way
 
@@ -88,4 +88,16 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**First run.** The plan, written before any file, found three gaps in this prompt: it asked for `DATABASE_URL` but named no parser (Django has none built in), host port 5432 clashed with my local Postgres, and my local uv was outdated. I chose dj-database-url and a configurable host port defaulting to 5433. The code itself was sound, and the agent adapted on its own to newer tool defaults (ruff, gunicorn, setup-uv). Reviewing the config by hand, not just the green checks, found a bug no test could: `.env.example` set `DJANGO_DEBUG=false`, so copying it to `.env` would have broken compose. I set the run aside anyway because one commit held about 1,400 lines, too much to review properly. I restarted with small PRs and tiny commits, the "How to work" section above.
+
+**Restart, plan review.** The second plan hit the same parser gap, because the prompt still didn't name one, and missed decisions from the first run that weren't written down yet: port 5433, `DJANGO_*` variable names, a configurable `DJANGO_TIME_ZONE`, and ADR 0011. Its layers contract made `api` and `infrastructure` independent siblings, which would have stopped `tasks/api/wiring.py`, the composition root, from importing the adapters. Good catches by the agent: import-linter has no "may import only X" contract, so contract 2 is a denylist; the spec's branch naming was inconsistent; factory-boy doesn't yet declare Django 5.2 support. One fix of mine was incomplete: from the repo root, ruff honours `force-exclude` only as a command-line flag, so the first generated migration was still reformatted until the agent passed the flag in both hooks.
+
+**During the build.**
+- CI caught a bad action pin in the agent's own plan in the first PR, before anything depended on it.
+- The agent checked each import-linter contract fails on a planted violation before committing it.
+- Codex raised two P1s: the settings tests proved the settings import, not that each variable reaches the right setting (#4); nothing ran `entrypoint.sh`, so nothing proved migrations run before the server (#5). Both were fixed with tests that run the real code under controlled inputs.
+- The first compose smoke test in CI caught a startup race: compose treated the backend as ready while it was still migrating. A healthcheck on `/api/health/` fixed it.
+
+**What I changed in how I prompt.** The workflow (plan first, small PRs, tiny commits, every commit approved) is now written into every prompt, and every open decision has to come back as a question with a proposed answer. Prompt 02 starts from that.
+
+**Left open.** The entrypoint migrates on every start, which needs a separate step once several containers share the image. The smoke test runs the dev target, so the prod image is only built. `/api/health/` checks the database, so it is a readiness check, not a liveness check. Three agent commits were typed `fix:` for CI changes where `ci:` fits; they stay, since history isn't rewritten.

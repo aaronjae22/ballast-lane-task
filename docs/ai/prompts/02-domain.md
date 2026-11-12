@@ -4,7 +4,7 @@
 - **Tool:** Claude Code in VS Code, a fresh session, plan mode first
 - **Branches:** `task/01-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _PR links added after the run_
+- **Result:** five PRs, merged at `7d34c92`: [#8](https://github.com/aaronjae22/ballast-lane-task/pull/8) Task entity, [#9](https://github.com/aaronjae22/ballast-lane-task/pull/9) transitions, permissions and assignment, [#10](https://github.com/aaronjae22/ballast-lane-task/pull/10) ports, fakes and CreateTask, [#11](https://github.com/aaronjae22/ballast-lane-task/pull/11) UpdateTask and AssignTask, [#12](https://github.com/aaronjae22/ballast-lane-task/pull/12) status changes, delete and the use-case matrix. The decisions the plan settled are recorded in ADR 0012.
 
 ## Why the prompt is written this way
 
@@ -84,4 +84,23 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**Plan.** The first plan matched the spec and answered the four questions this prompt named (task id, timestamps, whitespace-only titles, completing a done task), plus five more it found itself: an empty description, "set to a new value" for the assignee too, one error for unknown and inactive assignees, the order of checks, and hard delete. I accepted every proposed answer; they became ADR 0012. The plan review added five changes:
+- Make 100% coverage of domain and application a failing check through command-line flags, not a number to read.
+- Show why each failing-test commit fails, so a typo can't pass for test-first.
+- Document in `access.py` that writes check visibility with the domain rule, because the Codex review rules flag any task read that skips `visible_tasks`.
+- Pull `main` before PR 1.
+- Name the fixtures file.
+
+The second round applied all five and changed nothing else.
+
+**Build.** 26 commits, every rule as a failing-test commit followed by its code, 171 unit tests, 100% line and branch coverage of `tasks/domain` and `tasks/application`. What went wrong:
+- PR #8: CI's ruff flagged import order (I001). Ruff counts a module as first-party only once its file exists, so a test written before its module was sorted as third-party; ruff's local cache hid it. The agent fixed the file, then the cause, with `known-first-party`, and no later PR hit it.
+- PR #9: pytest 9.2 warned that passing an iterator to `parametrize` will fail in pytest 10. Fixed with a list.
+- Every PR ran over its size target, roughly 320 to 430 lines against about 230 to 300 planned, mostly in tests.
+- Two more test-only changes were typed `fix:`.
+
+**How the output was validated.** Besides CI and Codex on every PR, I reran each merged PR's unit tests on a clean copy with warnings as errors. For the use-case permission matrix, which passes the moment it's added, I broke the code on purpose: with `UpdateTask` checking the change-status permission, exactly one case failed, the assignee editing. The agent ran the same check before committing.
+
+**Codex review.** _To add: findings on #8 to #12 and their fixes._
+
+**Left open, carried into iteration 2.** No static type checker runs in CI, so nothing checks that the fakes, and later the adapters, match the ports. `AssignTask` has no test proving access is checked before the values, as `UpdateTask` has. Loading a task and saving it later can lose a concurrent update. `visible_tasks` must be tested against the same matrix rows as the domain.
