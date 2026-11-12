@@ -112,7 +112,9 @@ def test_refresh_documents_an_access_only_body_and_no_token(client: Client) -> N
     refresh = api["paths"]["/api/auth/token/refresh/"]["post"]
     body = refresh["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
 
-    assert set(refresh["responses"]) == {"200", "401", "415", "429"}
+    assert set(refresh["responses"]) == {"200", "204", "401", "415", "429"}
+    # Without a cookie: nothing to refresh, and no body (ADR 0016).
+    assert "content" not in refresh["responses"]["204"]
     assert "requestBody" not in refresh
     assert set(api["components"]["schemas"][body.rsplit("/", 1)[1]]["properties"]) == {"access"}
     assert {"jwtAuth": []} not in refresh.get("security", [])
