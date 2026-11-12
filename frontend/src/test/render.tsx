@@ -24,6 +24,27 @@ export function renderApp({
   return { auth, queryClient, router }
 }
 
+/**
+ * Renders `element` at `path` with the app's providers, but none of its routes: for testing
+ * hooks that need the router, the session and the query client.
+ */
+export function renderRoute(
+  element: ReactElement,
+  {
+    path = '/',
+    auth = createAuth(),
+    queryClient = createTestQueryClient(),
+  }: { path?: string; auth?: Auth; queryClient?: QueryClient } = {},
+) {
+  const router = createMemoryRouter([{ path: '*', element }], { initialEntries: [path] })
+  render(
+    <StrictMode>
+      <AppProviders auth={auth} queryClient={queryClient} router={router} mantineEnv="test" />
+    </StrictMode>,
+  )
+  return { auth, queryClient, router }
+}
+
 /** Renders one component inside Mantine, under StrictMode, for tests that need no routes. */
 export function renderUi(ui: ReactElement) {
   return render(
