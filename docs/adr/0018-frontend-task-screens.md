@@ -19,10 +19,11 @@ The iteration 6 plan review settled these. They bind every later change to the t
 
 ## Decision
 
-- **Two frontend copies of domain rules, for display only.**
+- **Three frontend copies of domain rules, for display only.**
   - `src/features/tasks/permissions.ts` mirrors the permission matrix in spec section 3. It decides which actions a user sees, from `is_admin` (`/api/users/me/`) and the task's owner and assignee.
   - The title rule in `src/features/tasks/schemas.ts` mirrors ADR 0012: strip surrounding spaces, then 1 to 200 characters, with the API's message.
-  - Both are display hints and early feedback. The API stays the authority. A 403, 409 or 400 is still handled on every screen, because a task can change between the read and the write.
+  - `permissions.ts` also mirrors the status transitions in spec section 3 (`_TRANSITIONS` in `backend/tasks/domain/task.py`): a task shows only the start, complete or reopen buttons its status allows. The API's 409 is still handled.
+  - All three are display hints and early feedback. The API stays the authority. A 403, 409 or 400 is still handled on every screen, because a task can change between the read and the write.
   - Changing a rule or the permission matrix means changing both copies and both sets of tests: the backend's permission-matrix test and the frontend's `permissions.test.ts`. Both files say so in a comment.
   - Nothing else is checked in the browser. The past-due-date rule depends on the server's "today" in `TIME_ZONE` (ADR 0012), which the browser's today differs from for part of every day. So the picker has no `minDate`, and the API's 400 lands on the due date field. That's the reason ADR 0014 gives for not computing overdue in the browser. Whether an assignee is active is the API's to say: the picker offers only active users, and a user deactivated since gets the API's 400 on `assignee_id`.
 - **Edit sends only what changed.** The PATCH holds only the fields the user changed (React Hook Form's dirty fields), and clearing the due date sends `null`. An overdue task's current date isn't re-sent unless the user changes it, and ADR 0012 accepts it when it is.
@@ -87,7 +88,7 @@ The iteration 6 plan review settled these. They bind every later change to the t
 
 ## Consequences
 
-- A change to the permission matrix or the title rule touches two places, the domain and the frontend copy, and both test suites. AGENTS.md's testing rules say so.
+- A change to the permission matrix, the status transitions or the title rule touches two places, the domain and the frontend copy, and both test suites. AGENTS.md's testing rules say so.
 - The UI can show an action the API then refuses, if the task changed since it was loaded. The error is explained and the data refetched.
 - A due date in the past is reported after a round trip, not as the user picks it.
 - After every mutation the lists refetch, at the cost of one request per visible list.
