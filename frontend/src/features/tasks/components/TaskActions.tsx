@@ -5,6 +5,7 @@ import { notifyError, notifySuccess } from '../../../components/notify'
 import { useCurrentUser } from '../../users/hooks/useCurrentUser'
 import { useAssignTask, useDeleteTask, useTaskTransition } from '../hooks/useTaskMutations'
 import type { Task } from '../hooks/useTasks'
+import { useListState } from '../listLink'
 import { can, transitionsFrom, type Transition } from '../permissions'
 import { AssignModal } from './AssignModal'
 import { ConfirmDeleteModal } from './ConfirmDeleteModal'
@@ -35,6 +36,7 @@ export function TaskActions({
   onDeleted?: () => unknown
 }) {
   const me = useCurrentUser()
+  const fromList = useListState()
   const transition = useTaskTransition(task.id)
   const assign = useAssignTask(task.id)
   const remove = useDeleteTask(task.id, { onDeleted })
@@ -85,7 +87,7 @@ export function TaskActions({
               </Menu.Item>
             )}
             {canEdit && (
-              <Menu.Item component={Link} to={`/tasks/${String(task.id)}/edit`}>
+              <Menu.Item component={Link} to={`/tasks/${String(task.id)}/edit`} state={fromList}>
                 Edit
               </Menu.Item>
             )}

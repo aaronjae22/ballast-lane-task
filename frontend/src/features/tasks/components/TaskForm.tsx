@@ -11,8 +11,9 @@ import { emptyTaskForm, taskFormSchema, type ChangedFields, type TaskFormValues 
 
 interface TaskFormProps {
   submitLabel: string
-  /** Where Cancel goes. */
+  /** Where Cancel goes, and the location state it takes along. */
   cancelTo: string
+  cancelState?: unknown
   /** The values the form starts with: empty to create, the task's own to edit. */
   defaultValues?: TaskFormValues
   /** Edit has no assignee field: assigning has its own endpoint (ADR 0004). */
@@ -29,6 +30,7 @@ type Field = keyof TaskFormValues
 export function TaskForm({
   submitLabel,
   cancelTo,
+  cancelState,
   defaultValues = emptyTaskForm,
   withAssignee = true,
   onSubmit,
@@ -99,7 +101,7 @@ export function TaskForm({
         />
         {withAssignee && <AssigneeSelect control={control} error={errors.assignee_id?.message} />}
         <Group justify="flex-end">
-          <Button component={Link} to={cancelTo} variant="default">
+          <Button component={Link} to={cancelTo} state={cancelState} variant="default">
             Cancel
           </Button>
           <Button type="submit" loading={isSubmitting}>

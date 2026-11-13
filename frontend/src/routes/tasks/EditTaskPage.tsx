@@ -5,6 +5,7 @@ import { notifySuccess } from '../../components/notify'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
 import { TaskForm } from '../../features/tasks/components/TaskForm'
 import { positiveInteger } from '../../features/tasks/filters'
+import { useListState } from '../../features/tasks/listLink'
 import { useUpdateTask } from '../../features/tasks/hooks/useTaskMutations'
 import { useTask, type Task } from '../../features/tasks/hooks/useTasks'
 import { can } from '../../features/tasks/permissions'
@@ -23,6 +24,7 @@ function EditTask({ id }: { id: number }) {
   const me = useCurrentUser()
   const update = useUpdateTask(id)
   const navigate = useNavigate()
+  const fromList = useListState()
   const taskPath = `/tasks/${String(id)}`
 
   if (task.isPending || me.isPending) return <TaskLoading />
@@ -43,7 +45,7 @@ function EditTask({ id }: { id: number }) {
 
   return (
     <Stack gap="md" maw={640}>
-      <Anchor component={Link} to={taskPath} size="sm">
+      <Anchor component={Link} to={taskPath} state={fromList} size="sm">
         Back to the task
       </Anchor>
       <Title order={1}>Edit task</Title>
@@ -53,6 +55,7 @@ function EditTask({ id }: { id: number }) {
           <TaskForm
             submitLabel="Save changes"
             cancelTo={taskPath}
+            cancelState={fromList}
             defaultValues={formValuesOf(task.data)}
             withAssignee={false}
             onSubmit={async (values, changed) => {
@@ -61,7 +64,7 @@ function EditTask({ id }: { id: number }) {
                 await update.mutateAsync(body)
                 notifySuccess('Changes saved.')
               }
-              await navigate(taskPath)
+              await navigate(taskPath, { state: fromList })
             }}
           />
         </Paper>
