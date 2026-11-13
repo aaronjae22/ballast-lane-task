@@ -40,6 +40,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // Only the unit and component tests: e2e/ is Playwright's (npm run e2e).
+    include: ['src/**/*.test.{ts,tsx}'],
     // Vitest's default, a worker for nearly every core, makes the workers fight for the CPU: each loads
     // its own jsdom and the whole app, and a test that takes 0.5 s alone took over 5 s on a
     // busy machine. Half the cores runs the suite just as fast, with half the memory.

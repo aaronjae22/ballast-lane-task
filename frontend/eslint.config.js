@@ -7,7 +7,8 @@ import tseslint from 'typescript-eslint'
 
 export default defineConfig([
   // src/api/generated/ is written by npm run gen:api and never edited (ADR 0016).
-  globalIgnores(['dist', 'coverage', 'src/api/generated']),
+  // test-results/ and playwright-report/ are Playwright's output.
+  globalIgnores(['dist', 'coverage', 'src/api/generated', 'test-results', 'playwright-report']),
   {
     files: ['**/*.js'],
     extends: [js.configs.recommended],
