@@ -103,6 +103,76 @@ jobs:
       - name: Build
         run: npm run build
 
+  # The real-browser console check (ADR 0018, spec section 2): Playwright walks the happy path
+  # in Chromium against runserver and Vite, with Postgres and Redis as services, by the same
+  # npm run e2e as on a host. CI is set, so Playwright starts both servers itself.
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: taskboard
+          POSTGRES_USER: taskboard
+          POSTGRES_PASSWORD: taskboard
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U taskboard -d taskboard"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://taskboard:taskboard@localhost:5432/taskboard
+      REDIS_URL: redis://localhost:6379/0
+      DJANGO_DEBUG: "true"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          working-directory: backend
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Migrate and seed the demo data
+        working-directory: backend
+        run: uv run python manage.py migrate && uv run python manage.py seed_demo
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run the browser check
+        working-directory: frontend
+        run: npm run e2e
+
   # The frontend's API contract (ADR 0016): the committed schema and types in
   # frontend/src/api/generated/ must be exactly what the backend and openapi-typescript give.
   # Fails on a backend change without npm run gen:api, a hand edit, or a generator upgrade.
