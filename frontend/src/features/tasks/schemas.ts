@@ -52,9 +52,15 @@ export type TaskUpdateRequest = components['schemas']['PatchedTaskUpdateRequest'
 /** Which fields the user changed, as React Hook Form's dirtyFields has them. */
 export type ChangedFields = Partial<Record<keyof TaskFormValues, boolean>>
 
-export function toUpdateRequest(
-  _values: TaskFormValues,
-  _changed: ChangedFields,
-): TaskUpdateRequest {
-  throw new Error('not implemented')
+/**
+ * The PATCH /api/tasks/{id}/ body: only the fields the user changed (ADR 0018), so an overdue
+ * task's date isn't sent back unless it changed. A cleared due date is null. The assignee
+ * has its own endpoint.
+ */
+export function toUpdateRequest(values: TaskFormValues, changed: ChangedFields): TaskUpdateRequest {
+  return {
+    ...(changed.title && { title: values.title.trim() }),
+    ...(changed.description && { description: values.description }),
+    ...(changed.due_date && { due_date: values.due_date }),
+  }
 }
