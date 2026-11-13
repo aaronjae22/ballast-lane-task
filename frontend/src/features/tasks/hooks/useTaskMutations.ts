@@ -88,6 +88,31 @@ export function useAssignTask(id: number): UseMutationResult<Task, Error, number
   })
 }
 
+/**
+ * DELETE /api/tasks/{id}/. `onDeleted` runs before the cached task is dropped: a page showing
+ * the task leaves first, instead of refetching a task that's gone.
+ */
+export function useDeleteTask(
+  id: number,
+  { onDeleted }: { onDeleted?: () => unknown } = {},
+): UseMutationResult<void, Error, void> {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      unwrap(await api.DELETE('/api/tasks/{id}/', { params: { path: { id } } }))
+    },
+    onSuccess: async () => {
+      await onDeleted?.()
+      queryClient.removeQueries({ queryKey: taskKeys.detail(id) })
+      void queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
+    },
+    onError: (error) => {
+      refreshAfterError(queryClient, id, error)
+    },
+  })
+}
+
 // After a change (ADR 0018): the returned task replaces the cached one, but only if it is still
 // cached. After a logout the cache is empty (ADR 0016), and a late answer mustn't refill it.
 // Every list is marked stale, since the change can move the task in or out of one.

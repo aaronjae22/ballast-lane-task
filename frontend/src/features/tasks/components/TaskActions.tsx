@@ -3,10 +3,11 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { notifyError, notifySuccess } from '../../../components/notify'
 import { useCurrentUser } from '../../users/hooks/useCurrentUser'
-import { useAssignTask, useTaskTransition } from '../hooks/useTaskMutations'
+import { useAssignTask, useDeleteTask, useTaskTransition } from '../hooks/useTaskMutations'
 import type { Task } from '../hooks/useTasks'
 import { can, transitionsFrom, type Transition } from '../permissions'
 import { AssignModal } from './AssignModal'
+import { ConfirmDeleteModal } from './ConfirmDeleteModal'
 
 const labels: Record<Transition, string> = {
   start: 'Start',
@@ -22,20 +23,30 @@ const results: Record<Transition, string> = {
 
 /**
  * What the user may do to the task, for the list's rows and the task page (ADR 0018): the
- * status changes as buttons, then a More menu with Assign and Edit. While a change runs, its
+ * status changes as buttons, then a More menu with Assign, Edit and Delete. While a change runs, its
  * button spins and the task's other actions are disabled.
  */
-export function TaskActions({ task }: { task: Task }) {
+export function TaskActions({
+  task,
+  onDeleted,
+}: {
+  task: Task
+  /** Runs once the task is deleted, before it leaves the cache: the task page goes to the list. */
+  onDeleted?: () => unknown
+}) {
   const me = useCurrentUser()
   const transition = useTaskTransition(task.id)
   const assign = useAssignTask(task.id)
+  const remove = useDeleteTask(task.id, { onDeleted })
   const [assigning, setAssigning] = useState(false)
-  const busy = transition.isPending || assign.isPending
+  const [deleting, setDeleting] = useState(false)
+  const busy = transition.isPending || assign.isPending || remove.isPending
   const canChangeStatus = can(me.data, task, 'change_status')
   const canAssign = can(me.data, task, 'assign')
   const canEdit = can(me.data, task, 'edit')
+  const canDelete = can(me.data, task, 'delete')
 
-  if (!canChangeStatus && !canAssign && !canEdit) return null
+  if (!canChangeStatus && !canAssign && !canEdit && !canDelete) return null
 
   return (
     <Group gap="xs">
@@ -56,7 +67,7 @@ export function TaskActions({ task }: { task: Task }) {
           {labels[name]}
         </Button>
       ))}
-      {(canAssign || canEdit) && (
+      {(canAssign || canEdit || canDelete) && (
         <Menu position="bottom-end">
           <Menu.Target>
             <Button size="xs" variant="default" disabled={busy}>
@@ -78,6 +89,16 @@ export function TaskActions({ task }: { task: Task }) {
                 Edit
               </Menu.Item>
             )}
+            {canDelete && (
+              <Menu.Item
+                color="red"
+                onClick={() => {
+                  setDeleting(true)
+                }}
+              >
+                Delete…
+              </Menu.Item>
+            )}
           </Menu.Dropdown>
         </Menu>
       )}
@@ -89,6 +110,16 @@ export function TaskActions({ task }: { task: Task }) {
             setAssigning(false)
           }}
           assign={assign}
+        />
+      )}
+      {canDelete && (
+        <ConfirmDeleteModal
+          task={task}
+          opened={deleting}
+          onClose={() => {
+            setDeleting(false)
+          }}
+          remove={remove}
         />
       )}
     </Group>

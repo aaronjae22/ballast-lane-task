@@ -11,13 +11,14 @@ import {
   aTask,
   assignTask,
   changeStatus,
+  deleteTask,
   held,
   summaryOf,
   updateTask,
 } from '../../../test/tasks'
 import type { Transition } from '../permissions'
 import { taskKeys } from './keys'
-import { useAssignTask, useTaskTransition, useUpdateTask } from './useTaskMutations'
+import { useAssignTask, useDeleteTask, useTaskTransition, useUpdateTask } from './useTaskMutations'
 
 // What a change does to the cached data (ADR 0018), seen in the query cache itself. The page
 // tests see only what the screen shows, which a refetch could provide on its own.
@@ -219,5 +220,53 @@ describe('an assignment', () => {
 
     expect(queryClient.getQueryData(detailKey)).toEqual(invoice)
     expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(false)
+  })
+})
+
+describe('a delete', () => {
+  it('drops the cached task and marks every list stale', async () => {
+    const request = deleteTask()
+    server.use(request.handler)
+    const { queryClient, result } = await renderMutation(() => useDeleteTask(7))
+
+    await act(() => result().mutateAsync())
+
+    expect(request.ids()).toEqual(['7'])
+    expect(queryClient.getQueryData(detailKey)).toBeUndefined()
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true)
+  })
+
+  // The task page leaves before its task is dropped; dropped first, the page would refetch the
+  // deleted task and flash "Task not found" on its way out.
+  it('runs onDeleted before it drops the cached task', async () => {
+    server.use(deleteTask().handler)
+    const cachedWhenLeaving: unknown[] = []
+    const { queryClient, result } = await renderMutation(() =>
+      useDeleteTask(7, {
+        onDeleted: () => {
+          cachedWhenLeaving.push(queryClient.getQueryData(detailKey))
+        },
+      }),
+    )
+
+    await act(() => result().mutateAsync())
+
+    expect(cachedWhenLeaving).toEqual([invoice])
+    expect(queryClient.getQueryData(detailKey)).toBeUndefined()
+  })
+
+  it('a 403 keeps the task until it refetches, and marks it and every list stale', async () => {
+    server.use(deleteTask(answer(403, { detail: 'Not allowed.' })).handler)
+    const { queryClient, result } = await renderMutation(() => useDeleteTask(7))
+
+    await act(() =>
+      result()
+        .mutateAsync()
+        .catch(() => undefined),
+    )
+
+    expect(queryClient.getQueryData(detailKey)).toEqual(invoice)
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true)
   })
 })
