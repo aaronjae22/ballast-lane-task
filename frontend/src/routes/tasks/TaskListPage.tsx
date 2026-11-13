@@ -1,7 +1,7 @@
-import { Alert, Button, Group, Paper, Skeleton, Stack, Text, Title } from '@mantine/core'
-import type { ReactNode } from 'react'
+import { Alert, Button, Group, Skeleton, Stack, Text, Title } from '@mantine/core'
 import { Link } from 'react-router'
 import { ApiError } from '../../api/errors'
+import { EmptyState } from '../../components/EmptyState'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
 import { TaskFilters } from '../../features/tasks/components/TaskFilters'
 import { TaskList } from '../../features/tasks/components/TaskList'
@@ -122,27 +122,5 @@ export function TaskListPage() {
         </>
       )}
     </Stack>
-  )
-}
-
-function EmptyState({
-  title,
-  message,
-  action,
-}: {
-  title: string
-  message: string
-  action: ReactNode
-}) {
-  return (
-    <Paper withBorder radius="md" p="xl">
-      <Stack align="center" gap="xs" ta="center">
-        <Text fw={600}>{title}</Text>
-        <Text size="sm" c="dimmed">
-          {message}
-        </Text>
-        {action}
-      </Stack>
-    </Paper>
   )
 }
