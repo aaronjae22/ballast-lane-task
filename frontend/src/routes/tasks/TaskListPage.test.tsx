@@ -88,7 +88,7 @@ describe('the task list on a wide screen', () => {
     const headers = within(table)
       .getAllByRole('columnheader')
       .map((header) => header.textContent)
-    expect(headers).toEqual(['Title', 'Status', 'Due date', 'Owner', 'Assignee'])
+    expect(headers).toEqual(['Title', 'Status', 'Due date', 'Owner', 'Assignee', 'Actions'])
     const row = within(table).getByRole('row', { name: /Send the October invoice/ })
     expect(row).toHaveTextContent('Nov 5, 2026')
     expect(within(row).getByText('Overdue')).toBeInTheDocument()
