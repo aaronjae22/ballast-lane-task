@@ -133,7 +133,7 @@ Each prompt has the same shape: the goal and the spec sections it covers, the op
 
 ## The output
 
-71 pull requests and 282 commits on `main`. 273 of the commits carry the agent's `Co-Authored-By: Claude` trailer. The other 9 are mine, and they're all documentation: the spec, the ADR set and the prompts.
+73 pull requests and 288 commits on `main` before this write-up. 279 of the commits carry the agent's `Co-Authored-By: Claude` trailer. The other 9 are mine, and they're all documentation: the spec, the ADR set and the prompts, as are the commits of the final docs PRs.
 
 That ratio needs explaining, because the spec planned for my corrections to land as separate commits without the trailer. In practice most corrections happened earlier: in the plan review, before any code existed, or as instructions to the builder, which then made the fix in its own commit. The fixes are still separate commits that say what was wrong; the table below lists them.
 
@@ -205,7 +205,7 @@ Every prompt asks for the tests first: a commit with failing tests, then the com
 - **The other 11 are wiring:** the Django skeleton and settings, app registration, the Celery app, the ports (Protocols, exercised through the fakes' own tests), and the compose and Vite proxy configuration, which the CI smoke test checks end to end. One of them is where test-after went wrong: the settings tests proved the settings import, not that each variable reaches its setting, and Codex caught it (row 5 below).
 - **Failing for the right reason.** Once a module existed, its next failing-test commit had to fail on the missing behaviour, not on an import error, so the red step proved something.
 - **Four levels of tests.** Unit tests for the domain and the use cases run on in-memory fakes, with no database. Integration tests run on Postgres: the repository, the selectors, the query plans, Celery. API tests go through HTTP. The frontend has Vitest with MSW, and Playwright in a real browser.
-- **At the end of iteration 6:** 681 backend tests at 99.81% coverage (the gate is 80%), and 338 Vitest tests plus 4 Playwright runs.
+- **At submission:** 681 backend tests at 99.81% coverage (the gate is 80%), 352 Vitest tests and 4 Playwright tests.
 - **One honest limit.** CI runs on each PR's last commit, so it doesn't prove every failing-test commit was red. The builder ran the tests at each one and reported the failure before writing the code; the mutation check above shows the tests do fail when the code is wrong.
 
 ## What I corrected or improved
@@ -240,7 +240,7 @@ Every prompt asks for the tests first: a commit with failing tests, then the com
 | 26 | 6 | The Assign dialog | Closing it while saving lost the pending state, so a reopened dialog could assign twice | The task's actions own the save, and wait for it | Codex (P2, [#69](https://github.com/aaronjae22/ballast-lane-task/pull/69)) | [ab97e9e][ab97e9e] |
 | 27 | 6 | Codex's review of the e2e login | It said the password field can't be found by its role and label. A false positive: Playwright gives a password input the `textbox` role, and the CI job had logged in through that locator | No change; I replied with the evidence | Me, reviewing Codex ([#71](https://github.com/aaronjae22/ballast-lane-task/pull/71)) | None |
 
-Codex left 13 findings across the 71 PRs: 1 P0, 4 P1 and 8 P2, and none on iteration 1's five. 12 were valid and fixed: 9 with a failing test first, and 3 that were themselves missing tests. One was a false positive, which I declined with the evidence instead of changing working code to satisfy the reviewer (row 27).
+Codex left 13 findings across the 73 PRs: 1 P0, 4 P1 and 8 P2, and none on iteration 1's five. 12 were valid and fixed: 9 with a failing test first, and 3 that were themselves missing tests. One was a false positive, which I declined with the evidence instead of changing working code to satisfy the reviewer (row 27).
 
 ## Edge cases, authentication and validation
 
