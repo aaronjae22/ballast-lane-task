@@ -82,6 +82,20 @@ export function getTask(...answers: (Task | (() => Response | Promise<Response>)
   return { handler, ids: () => ids }
 }
 
+/**
+ * Answers PATCH /api/tasks/{id}/ in order, one answer per request; the last repeats. An answer
+ * is the updated task, or a function for anything else. `bodies()` are the JSON bodies received.
+ */
+export function updateTask(...answers: (Task | (() => Response | Promise<Response>))[]) {
+  const bodies: unknown[] = []
+  const handler = http.patch(apiUrl('/api/tasks/{id}/'), async ({ request }) => {
+    const answer = answers[Math.min(bodies.length, answers.length - 1)] ?? aTask()
+    bodies.push(await request.json())
+    return typeof answer === 'function' ? answer() : HttpResponse.json(answer)
+  })
+  return { handler, bodies: () => bodies }
+}
+
 /** A promise a handler can wait on, and the function that lets it go. */
 export function held(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined

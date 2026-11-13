@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { emptyTaskForm, taskFormSchema, toCreateRequest, type TaskFormValues } from './schemas'
+import {
+  emptyTaskForm,
+  taskFormSchema,
+  toCreateRequest,
+  toUpdateRequest,
+  type TaskFormValues,
+} from './schemas'
 
 function form(overrides: Partial<TaskFormValues>): TaskFormValues {
   return { ...emptyTaskForm, title: 'Write the report', ...overrides }
@@ -68,5 +74,39 @@ describe('the create request', () => {
       due_date: null,
       assignee_id: null,
     })
+  })
+})
+
+// Edit sends only what the user changed (ADR 0018): an overdue task's date isn't sent back
+// unless it was changed, and the assignee has its own endpoint.
+describe('the update request', () => {
+  const edited = form({
+    title: '  Write the final report ',
+    description: 'Three pages.',
+    due_date: '2026-11-05',
+    assignee_id: 2,
+  })
+
+  it('holds only the changed fields, the title without the spaces around it', () => {
+    expect(toUpdateRequest(edited, { title: true })).toEqual({ title: 'Write the final report' })
+    expect(toUpdateRequest(edited, { description: true, due_date: true })).toEqual({
+      description: 'Three pages.',
+      due_date: '2026-11-05',
+    })
+  })
+
+  it('sends null for a due date that was cleared', () => {
+    expect(toUpdateRequest(form({ due_date: null }), { due_date: true })).toEqual({
+      due_date: null,
+    })
+  })
+
+  it('is empty when nothing changed', () => {
+    expect(toUpdateRequest(edited, {})).toEqual({})
+    expect(toUpdateRequest(edited, { title: false })).toEqual({})
+  })
+
+  it('never holds the assignee', () => {
+    expect(toUpdateRequest(edited, { assignee_id: true })).toEqual({})
   })
 })

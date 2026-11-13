@@ -1,8 +1,8 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { refreshAnswers, users } from '../../test/handlers'
+import { admin, currentUser, refreshAnswers, users } from '../../test/handlers'
 import { renderApp } from '../../test/render'
 import { server } from '../../test/server'
 import { aTask, getTask, held, summaryOf } from '../../test/tasks'
@@ -76,6 +76,31 @@ describe('a task', () => {
       'href',
       '/tasks',
     )
+  })
+})
+
+describe('the Edit link', () => {
+  it.each([
+    ['the owner', users.alice],
+    ['an admin', admin],
+  ])('%s gets one, to the edit page', async (_, me) => {
+    server.use(currentUser(me))
+    openTask('/tasks/7', invoice)
+
+    expect(await screen.findByRole('link', { name: 'Edit' })).toHaveAttribute(
+      'href',
+      '/tasks/7/edit',
+    )
+  })
+
+  it("the assignee doesn't: only the owner or an admin may edit (spec section 3)", async () => {
+    server.use(currentUser(users.bob))
+    openTask('/tasks/7', invoice)
+
+    // Once the header shows who is signed in, the page knows it too.
+    expect(await within(await screen.findByRole('banner')).findByText('Bob Smith')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Send the October invoice' })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
   })
 })
 

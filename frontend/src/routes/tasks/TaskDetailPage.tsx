@@ -1,12 +1,13 @@
-import { Anchor, Button, Paper, Skeleton, Stack, Title } from '@mantine/core'
+import { Anchor, Button, Group, Paper, Stack, Title } from '@mantine/core'
 import { Link, useParams } from 'react-router'
-import { taskNotFound } from '../../api/errorMessages'
 import { ApiError } from '../../api/errors'
-import { EmptyState } from '../../components/EmptyState'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
 import { TaskDetails } from '../../features/tasks/components/TaskDetails'
 import { positiveInteger } from '../../features/tasks/filters'
 import { useTask } from '../../features/tasks/hooks/useTasks'
+import { can } from '../../features/tasks/permissions'
+import { useCurrentUser } from '../../features/users/hooks/useCurrentUser'
+import { TaskLoading, TaskNotFound } from './TaskPageStates'
 
 export function TaskDetailPage() {
   const { taskId = '' } = useParams()
@@ -17,15 +18,9 @@ export function TaskDetailPage() {
 
 function TaskView({ id }: { id: number }) {
   const task = useTask(id)
+  const me = useCurrentUser()
 
-  if (task.isPending) {
-    return (
-      <Stack role="status" aria-label="Loading the task" gap="sm">
-        <Skeleton height={36} width="60%" />
-        <Skeleton height={160} radius="md" />
-      </Stack>
-    )
-  }
+  if (task.isPending) return <TaskLoading />
   if (task.isError) {
     if (task.error instanceof ApiError && task.error.status === 404) return <TaskNotFound />
     return (
@@ -43,9 +38,16 @@ function TaskView({ id }: { id: number }) {
   return (
     <Stack gap="md">
       <BackToTasks />
-      <Title order={1} style={{ overflowWrap: 'anywhere' }}>
-        {task.data.title}
-      </Title>
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <Title order={1} style={{ overflowWrap: 'anywhere' }}>
+          {task.data.title}
+        </Title>
+        {can(me.data, task.data, 'edit') && (
+          <Button component={Link} to={`/tasks/${String(id)}/edit`} variant="default">
+            Edit
+          </Button>
+        )}
+      </Group>
       <Paper withBorder radius="md" p="md">
         <TaskDetails task={task.data} />
       </Paper>
@@ -58,19 +60,5 @@ function BackToTasks() {
     <Anchor component={Link} to="/tasks" size="sm">
       Back to tasks
     </Anchor>
-  )
-}
-
-function TaskNotFound() {
-  return (
-    <EmptyState
-      title={taskNotFound.title}
-      message={taskNotFound.message}
-      action={
-        <Button component={Link} to="/tasks" variant="light">
-          Back to tasks
-        </Button>
-      }
-    />
   )
 }

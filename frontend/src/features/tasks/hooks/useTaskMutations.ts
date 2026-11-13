@@ -1,7 +1,12 @@
-import { useMutation, useQueryClient, type UseMutationResult } from '@tanstack/react-query'
-import { unwrap } from '../../../api/errors'
+import {
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+  type UseMutationResult,
+} from '@tanstack/react-query'
+import { ApiError, unwrap } from '../../../api/errors'
 import { useApi } from '../../../auth/useAuth'
-import type { TaskCreateRequest } from '../schemas'
+import type { TaskCreateRequest, TaskUpdateRequest } from '../schemas'
 import { taskKeys } from './keys'
 import type { Task } from './useTasks'
 
@@ -19,4 +24,43 @@ export function useCreateTask(): UseMutationResult<Task, Error, TaskCreateReques
       void queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
     },
   })
+}
+
+/** PATCH /api/tasks/{id}/ with the changed fields. */
+export function useUpdateTask(id: number): UseMutationResult<Task, Error, TaskUpdateRequest> {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body) =>
+      unwrap<Task>(await api.PATCH('/api/tasks/{id}/', { params: { path: { id } }, body })),
+    onSuccess: (task) => {
+      storeTask(queryClient, task)
+    },
+    onError: (error) => {
+      refreshAfterError(queryClient, id, error)
+    },
+  })
+}
+
+// After a change (ADR 0018): the returned task replaces the cached one, but only if it is still
+// cached. After a logout the cache is empty (ADR 0016), and a late answer mustn't refill it.
+// Every list is marked stale, since the change can move the task in or out of one.
+function storeTask(queryClient: QueryClient, task: Task): void {
+  const key = taskKeys.detail(task.id)
+  if (queryClient.getQueryData(key) !== undefined) queryClient.setQueryData(key, task)
+  void queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
+}
+
+// A 404: the task is gone, or no longer visible. A 403 or 409: it changed elsewhere, and the
+// screens should catch up with it (ADR 0018).
+function refreshAfterError(queryClient: QueryClient, id: number, error: Error): void {
+  if (!(error instanceof ApiError)) return
+  if (error.status === 404) {
+    queryClient.removeQueries({ queryKey: taskKeys.detail(id) })
+  } else if (error.status === 403 || error.status === 409) {
+    void queryClient.invalidateQueries({ queryKey: taskKeys.detail(id) })
+  } else {
+    return
+  }
+  void queryClient.invalidateQueries({ queryKey: taskKeys.lists() })
 }
