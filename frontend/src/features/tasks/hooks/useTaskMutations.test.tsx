@@ -2,14 +2,22 @@ import { act, waitFor } from '@testing-library/react'
 import { HttpResponse, type JsonBodyType } from 'msw'
 import { describe, expect, it } from 'vitest'
 import { useAuth } from '../../../auth/useAuth'
-import { logoutSucceeds, refreshAnswers } from '../../../test/handlers'
+import { logoutSucceeds, refreshAnswers, users } from '../../../test/handlers'
 import { createTestQueryClient } from '../../../test/queryClient'
 import { renderRoute } from '../../../test/render'
 import { server } from '../../../test/server'
-import { aPage, aTask, changeStatus, held, updateTask } from '../../../test/tasks'
+import {
+  aPage,
+  aTask,
+  assignTask,
+  changeStatus,
+  held,
+  summaryOf,
+  updateTask,
+} from '../../../test/tasks'
 import type { Transition } from '../permissions'
 import { taskKeys } from './keys'
-import { useTaskTransition, useUpdateTask } from './useTaskMutations'
+import { useAssignTask, useTaskTransition, useUpdateTask } from './useTaskMutations'
 
 // What a change does to the cached data (ADR 0018), seen in the query cache itself. The page
 // tests see only what the screen shows, which a refetch could provide on its own.
@@ -62,6 +70,16 @@ async function renderTransition() {
       .mutateAsync(transition)
       .catch(() => undefined)
   return { ...app, change }
+}
+
+async function renderAssign() {
+  const app = await renderMutation(() => useAssignTask(7))
+  const assign = (assigneeId: number | null) =>
+    app
+      .result()
+      .mutateAsync(assigneeId)
+      .catch(() => undefined)
+  return { ...app, assign }
 }
 
 function answer(status: number, body: JsonBodyType) {
@@ -173,5 +191,33 @@ describe('a status change', () => {
     expect(queryClient.getQueryData(detailKey)).toEqual(invoice)
     expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true)
     expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true)
+  })
+})
+
+describe('an assignment', () => {
+  it.each([
+    ['assigns', 2, summaryOf(users.bob)],
+    ['unassigns, with null', null, null],
+  ] as const)('%s, then caches the task it returns', async (_, assigneeId, assignee) => {
+    const assigned = { ...invoice, assignee }
+    const request = assignTask(assigned)
+    server.use(request.handler)
+    const { queryClient, assign } = await renderAssign()
+
+    await act(() => assign(assigneeId))
+
+    expect(request.bodies()).toEqual([{ assignee_id: assigneeId }])
+    expect(queryClient.getQueryData(detailKey)).toEqual(assigned)
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true)
+  })
+
+  it('a 400 for an assignee no longer active changes nothing in the cache', async () => {
+    server.use(assignTask(answer(400, { assignee_id: ['Must be an active user.'] })).handler)
+    const { queryClient, assign } = await renderAssign()
+
+    await act(() => assign(3))
+
+    expect(queryClient.getQueryData(detailKey)).toEqual(invoice)
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(false)
   })
 })

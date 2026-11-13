@@ -79,15 +79,18 @@ describe('a task', () => {
   })
 })
 
+// Edit sits in the More menu with Assign and Delete (ADR 0018).
 describe('the Edit link', () => {
   it.each([
     ['the owner', users.alice],
     ['an admin', admin],
-  ])('%s gets one, to the edit page', async (_, me) => {
+  ])('%s gets one in the More menu, to the edit page', async (_, me) => {
     server.use(currentUser(me))
     openTask('/tasks/7', invoice)
 
-    expect(await screen.findByRole('link', { name: 'Edit' })).toHaveAttribute(
+    await userEvent.click(await screen.findByRole('button', { name: 'More' }))
+
+    expect(await screen.findByRole('menuitem', { name: 'Edit' })).toHaveAttribute(
       'href',
       '/tasks/7/edit',
     )
@@ -100,7 +103,8 @@ describe('the Edit link', () => {
     // Once the header shows who is signed in, the page knows it too.
     expect(await within(await screen.findByRole('banner')).findByText('Bob Smith')).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Send the October invoice' })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: 'Edit' })).not.toBeInTheDocument()
+    // Nothing in the menu is the assignee's to do, so there's no menu.
+    expect(screen.queryByRole('button', { name: 'More' })).not.toBeInTheDocument()
   })
 })
 

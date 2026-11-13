@@ -113,6 +113,21 @@ export function changeStatus(...answers: (Task | (() => Response | Promise<Respo
   return { handlers, calls: () => calls }
 }
 
+/**
+ * Answers POST /api/tasks/{id}/assign/ in order, one answer per request; the last repeats. An
+ * answer is the task as assigned, or a function for anything else. `bodies()` are the JSON
+ * bodies received.
+ */
+export function assignTask(...answers: (Task | (() => Response | Promise<Response>))[]) {
+  const bodies: unknown[] = []
+  const handler = http.post(apiUrl('/api/tasks/{id}/assign/'), async ({ request }) => {
+    const answer = answers[Math.min(bodies.length, answers.length - 1)] ?? aTask()
+    bodies.push(await request.json())
+    return typeof answer === 'function' ? answer() : HttpResponse.json(answer)
+  })
+  return { handler, bodies: () => bodies }
+}
+
 /** A promise a handler can wait on, and the function that lets it go. */
 export function held(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined

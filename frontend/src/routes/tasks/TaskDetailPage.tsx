@@ -1,4 +1,4 @@
-import { Anchor, Button, Group, Paper, Stack, Title } from '@mantine/core'
+import { Anchor, Paper, Stack, Title } from '@mantine/core'
 import { Link, useParams } from 'react-router'
 import { ApiError } from '../../api/errors'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
@@ -6,8 +6,6 @@ import { TaskActions } from '../../features/tasks/components/TaskActions'
 import { TaskDetails } from '../../features/tasks/components/TaskDetails'
 import { positiveInteger } from '../../features/tasks/filters'
 import { useTask } from '../../features/tasks/hooks/useTasks'
-import { can } from '../../features/tasks/permissions'
-import { useCurrentUser } from '../../features/users/hooks/useCurrentUser'
 import { TaskLoading, TaskNotFound } from './TaskPageStates'
 
 export function TaskDetailPage() {
@@ -19,7 +17,6 @@ export function TaskDetailPage() {
 
 function TaskView({ id }: { id: number }) {
   const task = useTask(id)
-  const me = useCurrentUser()
 
   if (task.isPending) return <TaskLoading />
   if (task.isError) {
@@ -42,14 +39,7 @@ function TaskView({ id }: { id: number }) {
       <Title order={1} style={{ overflowWrap: 'anywhere' }}>
         {task.data.title}
       </Title>
-      <Group gap="xs">
-        <TaskActions task={task.data} />
-        {can(me.data, task.data, 'edit') && (
-          <Button component={Link} to={`/tasks/${String(id)}/edit`} variant="default" size="xs">
-            Edit
-          </Button>
-        )}
-      </Group>
+      <TaskActions task={task.data} />
       <Paper withBorder radius="md" p="md">
         <TaskDetails task={task.data} />
       </Paper>
