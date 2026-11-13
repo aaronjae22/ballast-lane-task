@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { notifyError, notifySuccess } from '../../../components/notify'
 import { useCurrentUser } from '../../users/hooks/useCurrentUser'
-import { useTaskTransition } from '../hooks/useTaskMutations'
+import { useAssignTask, useTaskTransition } from '../hooks/useTaskMutations'
 import type { Task } from '../hooks/useTasks'
 import { can, transitionsFrom, type Transition } from '../permissions'
 import { AssignModal } from './AssignModal'
@@ -22,14 +22,15 @@ const results: Record<Transition, string> = {
 
 /**
  * What the user may do to the task, for the list's rows and the task page (ADR 0018): the
- * status changes as buttons, then a More menu with Assign and Edit. While a status change
- * runs, its button spins and the task's other actions are disabled.
+ * status changes as buttons, then a More menu with Assign and Edit. While a change runs, its
+ * button spins and the task's other actions are disabled.
  */
 export function TaskActions({ task }: { task: Task }) {
   const me = useCurrentUser()
   const transition = useTaskTransition(task.id)
+  const assign = useAssignTask(task.id)
   const [assigning, setAssigning] = useState(false)
-  const busy = transition.isPending
+  const busy = transition.isPending || assign.isPending
   const canChangeStatus = can(me.data, task, 'change_status')
   const canAssign = can(me.data, task, 'assign')
   const canEdit = can(me.data, task, 'edit')
@@ -44,7 +45,7 @@ export function TaskActions({ task }: { task: Task }) {
           size="xs"
           variant={name === 'complete' ? 'filled' : 'light'}
           loading={transition.isPending && transition.variables === name}
-          disabled={transition.isPending && transition.variables !== name}
+          disabled={busy && !(transition.isPending && transition.variables === name)}
           onClick={() => {
             // The promise settles even if the row has gone from a filtered list by then.
             transition.mutateAsync(name).then(() => {
@@ -87,6 +88,7 @@ export function TaskActions({ task }: { task: Task }) {
           onClose={() => {
             setAssigning(false)
           }}
+          assign={assign}
         />
       )}
     </Group>

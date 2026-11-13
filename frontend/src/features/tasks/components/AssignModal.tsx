@@ -3,21 +3,41 @@ import { useState } from 'react'
 import { describeError, fieldErrorsOf, type ErrorDescription } from '../../../api/errorMessages'
 import { notifySuccess } from '../../../components/notify'
 import { useActiveUsers } from '../../users/hooks/useActiveUsers'
-import { useAssignTask } from '../hooks/useTaskMutations'
+import type { useAssignTask } from '../hooks/useTaskMutations'
 import type { Task } from '../hooks/useTasks'
+
+type Assign = ReturnType<typeof useAssignTask>
 
 interface AssignModalProps {
   task: Task
   opened: boolean
   onClose: () => void
+  /**
+   * The task's assign mutation, owned by TaskActions: its pending state outlives the form, so
+   * the task's other actions wait for it too (ADR 0018).
+   */
+  assign: Assign
 }
 
 /** Assign, reassign or unassign a task (spec section 3). */
-export function AssignModal({ task, opened, onClose }: AssignModalProps) {
+export function AssignModal({ task, opened, onClose, assign }: AssignModalProps) {
+  // While a save runs, the dialog stays open: closing and reopening it would start a second
+  // assignment, and the first to be sent could finish last and win.
+  const saving = assign.isPending
   return (
-    <Modal opened={opened} onClose={onClose} title="Assign task">
+    <Modal
+      opened={opened}
+      onClose={() => {
+        if (!saving) onClose()
+      }}
+      title="Assign task"
+      closeOnClickOutside={!saving}
+      closeOnEscape={!saving}
+      withCloseButton={!saving}
+      closeButtonProps={{ 'aria-label': 'Close' }}
+    >
       {/* Mounted only while open, so each opening starts from the task's current assignee. */}
-      {opened && <AssignForm task={task} onDone={onClose} />}
+      {opened && <AssignForm task={task} assign={assign} onDone={onClose} />}
     </Modal>
   )
 }
@@ -26,9 +46,8 @@ export function AssignModal({ task, opened, onClose }: AssignModalProps) {
 // readers, so it can't be the only way to unassign.
 const unassigned = 'unassigned'
 
-function AssignForm({ task, onDone }: { task: Task; onDone: () => void }) {
+function AssignForm({ task, assign, onDone }: { task: Task; assign: Assign; onDone: () => void }) {
   const users = useActiveUsers()
-  const assign = useAssignTask(task.id)
   const current = task.assignee?.id ?? null
   const [value, setValue] = useState(current === null ? unassigned : String(current))
   const [fieldError, setFieldError] = useState<string | null>(null)
@@ -101,7 +120,7 @@ function AssignForm({ task, onDone }: { task: Task; onDone: () => void }) {
           data-autofocus
         />
         <Group justify="flex-end">
-          <Button variant="default" onClick={onDone}>
+          <Button variant="default" onClick={onDone} disabled={assign.isPending}>
             Cancel
           </Button>
           <Button type="submit" loading={assign.isPending}>
