@@ -54,7 +54,8 @@ test('the admin reopens and deletes it', async ({ page }) => {
     .click()
 
   await expect(page.getByText('Task deleted.')).toBeVisible()
-  await expect(page).toHaveURL('/tasks')
+  // Back to the list it was opened from, the title search included.
+  await expect(page).toHaveURL(`/tasks?${new URLSearchParams({ search: edited }).toString()}`)
 })
 
 // Through the list's title search, so the test finds the task on any page of the list.

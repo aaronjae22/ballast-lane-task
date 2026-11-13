@@ -5,6 +5,7 @@ import { notifySuccess } from '../../../components/notify'
 import { useActiveUsers } from '../../users/hooks/useActiveUsers'
 import type { useAssignTask } from '../hooks/useTaskMutations'
 import type { Task } from '../hooks/useTasks'
+import { assigneeOptions, fromOptionValue, toOptionValue } from '../assigneeOptions'
 
 type Assign = ReturnType<typeof useAssignTask>
 
@@ -42,31 +43,17 @@ export function AssignModal({ task, opened, onClose, assign }: AssignModalProps)
   )
 }
 
-// An option of its own: the Select's clear button is hidden from the keyboard and from screen
-// readers, so it can't be the only way to unassign.
-const unassigned = 'unassigned'
-
 function AssignForm({ task, assign, onDone }: { task: Task; assign: Assign; onDone: () => void }) {
   const users = useActiveUsers()
   const current = task.assignee?.id ?? null
-  const [value, setValue] = useState(current === null ? unassigned : String(current))
+  const [value, setValue] = useState(toOptionValue(current))
   const [fieldError, setFieldError] = useState<string | null>(null)
   const [failure, setFailure] = useState<ErrorDescription | null>(null)
 
-  // A current assignee deactivated since isn't in /api/users/, but still shows (ADR 0018).
-  const people = users.data ?? []
-  const options = [
-    { value: unassigned, label: 'Unassigned' },
-    ...[
-      ...people,
-      ...(task.assignee && !people.some((user) => user.id === task.assignee?.id)
-        ? [task.assignee]
-        : []),
-    ].map((user) => ({ value: String(user.id), label: user.name })),
-  ]
+  const options = assigneeOptions(users.data ?? [], task.assignee)
 
   async function submit() {
-    const next = value === unassigned ? null : Number(value)
+    const next = fromOptionValue(value)
     if (next === current) {
       onDone()
       return

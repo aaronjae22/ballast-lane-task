@@ -2,11 +2,13 @@ import { Anchor, Group, Table, Text } from '@mantine/core'
 import { Link } from 'react-router'
 import { formatDay } from '../dates'
 import type { Task } from '../hooks/useTasks'
+import { useListState } from '../listLink'
 import { TaskActions } from './TaskActions'
 import { OverdueBadge, TaskStatusBadge } from './TaskStatusBadge'
 
 /** The list from the `sm` breakpoint up: a column for each detail. */
 export function TaskTable({ tasks }: { tasks: Task[] }) {
+  const fromList = useListState()
   return (
     <Table aria-label="Tasks" highlightOnHover verticalSpacing="sm">
       <Table.Thead>
@@ -23,7 +25,7 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
         {tasks.map((task) => (
           <Table.Tr key={task.id}>
             <Table.Td>
-              <Anchor component={Link} to={`/tasks/${String(task.id)}`} fw={600}>
+              <Anchor component={Link} to={`/tasks/${String(task.id)}`} state={fromList} fw={600}>
                 {task.title}
               </Anchor>
             </Table.Td>
