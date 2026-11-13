@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { ApiError, unwrap } from '../../../api/errors'
 import { useApi } from '../../../auth/useAuth'
+import type { Transition } from '../permissions'
 import type { TaskCreateRequest, TaskUpdateRequest } from '../schemas'
 import { taskKeys } from './keys'
 import type { Task } from './useTasks'
@@ -40,6 +41,10 @@ export function useUpdateTask(id: number): UseMutationResult<Task, Error, TaskUp
       refreshAfterError(queryClient, id, error)
     },
   })
+}
+
+export function useTaskTransition(_id: number): UseMutationResult<Task, Error, Transition> {
+  throw new Error('not implemented')
 }
 
 // After a change (ADR 0018): the returned task replaces the cached one, but only if it is still

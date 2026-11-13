@@ -6,9 +6,10 @@ import { logoutSucceeds, refreshAnswers } from '../../../test/handlers'
 import { createTestQueryClient } from '../../../test/queryClient'
 import { renderRoute } from '../../../test/render'
 import { server } from '../../../test/server'
-import { aPage, aTask, held, updateTask } from '../../../test/tasks'
+import { aPage, aTask, changeStatus, held, updateTask } from '../../../test/tasks'
+import type { Transition } from '../permissions'
 import { taskKeys } from './keys'
-import { useUpdateTask } from './useTaskMutations'
+import { useTaskTransition, useUpdateTask } from './useTaskMutations'
 
 // What a change does to the cached data (ADR 0018), seen in the query cache itself. The page
 // tests see only what the screen shows, which a refetch could provide on its own.
@@ -18,17 +19,16 @@ const renamed = { ...invoice, title: 'Send the November invoice' }
 const detailKey = taskKeys.detail(7)
 const listKey = taskKeys.list({ page_size: 20 })
 
-async function renderUpdate({ cached = true } = {}) {
+// Renders a mutation hook for a signed-in user, with task 7 in the cache (unless `cached` is
+// false) and one list, and returns the hook's latest result.
+async function renderMutation<Result>(useHook: () => Result, { cached = true } = {}) {
   server.use(refreshAnswers('alice-token').handler)
   const queryClient = createTestQueryClient()
   if (cached) queryClient.setQueryData(detailKey, invoice)
   queryClient.setQueryData(listKey, aPage([invoice]))
-  const seen: { latest: ReturnType<typeof useUpdateTask> | null; status: string } = {
-    latest: null,
-    status: '',
-  }
+  const seen: { latest: Result | null; status: string } = { latest: null, status: '' }
   function Probe() {
-    seen.latest = useUpdateTask(7)
+    seen.latest = useHook()
     seen.status = useAuth().status
     return null
   }
@@ -36,16 +36,32 @@ async function renderUpdate({ cached = true } = {}) {
   await waitFor(() => {
     expect(seen.status).toBe('authenticated')
   })
-  const update = () => {
+  const result = () => {
     if (seen.latest === null) throw new Error('the hook never rendered')
     return seen.latest
   }
-  // Settles the mutation either way: these tests look at the cache, not the result.
+  return { ...app, queryClient, result }
+}
+
+// Each mutation settles either way: these tests look at the cache, not the result.
+async function renderUpdate(options: { cached?: boolean } = {}) {
+  const app = await renderMutation(() => useUpdateTask(7), options)
   const save = (title: string) =>
-    update()
+    app
+      .result()
       .mutateAsync({ title })
       .catch(() => undefined)
-  return { ...app, queryClient, save }
+  return { ...app, save }
+}
+
+async function renderTransition() {
+  const app = await renderMutation(() => useTaskTransition(7))
+  const change = (transition: Transition) =>
+    app
+      .result()
+      .mutateAsync(transition)
+      .catch(() => undefined)
+  return { ...app, change }
 }
 
 function answer(status: number, body: JsonBodyType) {
@@ -126,5 +142,36 @@ describe('after a refusal', () => {
     expect(queryClient.getQueryData(detailKey)).toEqual(invoice)
     expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(false)
     expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(false)
+  })
+})
+
+describe('a status change', () => {
+  it.each([
+    ['start', { status: 'in_progress' }],
+    ['complete', { status: 'done', completed_at: '2026-11-12T17:05:00Z' }],
+    ['reopen', { status: 'to_do' }],
+  ] as const)('%s asks for it, then caches the task it returns', async (transition, change) => {
+    const changed = { ...invoice, ...change }
+    const status = changeStatus(changed)
+    server.use(...status.handlers)
+    const { queryClient, change: send } = await renderTransition()
+
+    await act(() => send(transition))
+
+    expect(status.calls()).toEqual([`7/${transition}`])
+    expect(queryClient.getQueryData(detailKey)).toEqual(changed)
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true)
+  })
+
+  it('a 409 keeps the task until it refetches, and marks it and every list stale', async () => {
+    const status = changeStatus(answer(409, { detail: "Can't start a task that is done." }))
+    server.use(...status.handlers)
+    const { queryClient, change } = await renderTransition()
+
+    await act(() => change('start'))
+
+    expect(queryClient.getQueryData(detailKey)).toEqual(invoice)
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true)
   })
 })
