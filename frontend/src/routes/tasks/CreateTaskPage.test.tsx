@@ -211,15 +211,36 @@ describe("the API's answers", () => {
 })
 
 describe('the assignee picker', () => {
-  it('offers the active users', async () => {
+  it('starts unassigned, and offers Unassigned and the active users', async () => {
     openCreate()
+    const picker = await screen.findByRole('combobox', { name: 'Assignee' })
 
-    await userEvent.click(await screen.findByRole('combobox', { name: 'Assignee' }))
-
+    expect(picker).toHaveValue('Unassigned')
+    await userEvent.click(picker)
     expect((await screen.findAllByRole('option')).map((option) => option.textContent)).toEqual([
+      'Unassigned',
       'Alice Johnson',
       'Bob Smith',
       'Carol Diaz',
+    ])
+  })
+
+  // An option, because the Select's clear button is hidden from the keyboard and from screen
+  // readers (as in the Assign dialog).
+  it('a picked assignee can be undone with the Unassigned option', async () => {
+    const { create } = openCreate()
+    await typeTitle('Write the report')
+    const picker = screen.getByRole('combobox', { name: 'Assignee' })
+
+    await userEvent.click(picker)
+    await userEvent.click(await screen.findByRole('option', { name: 'Bob Smith' }))
+    await userEvent.click(picker)
+    await userEvent.click(await screen.findByRole('option', { name: 'Unassigned' }))
+    await submit()
+
+    await screen.findByText('Task created.')
+    expect(create.bodies()).toEqual([
+      { title: 'Write the report', description: '', due_date: null, assignee_id: null },
     ])
   })
 
