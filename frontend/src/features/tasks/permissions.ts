@@ -26,3 +26,9 @@ export function can(
   if (user.is_admin || user.id === task.owner.id) return true
   return user.id === task.assignee?.id && assigneeActions.has(action)
 }
+
+export type Transition = 'start' | 'complete' | 'reopen'
+
+export function transitionsFrom(_status: Task['status']): Transition[] {
+  throw new Error('not implemented')
+}
