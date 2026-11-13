@@ -68,6 +68,20 @@ export function createTask(...answers: (Task | (() => Response | Promise<Respons
   return { handler, bodies: () => bodies }
 }
 
+/**
+ * Answers GET /api/tasks/{id}/ in order, one answer per request; the last repeats. An answer is
+ * the task, or a function for anything else. `ids()` are the ids requested.
+ */
+export function getTask(...answers: (Task | (() => Response | Promise<Response>))[]) {
+  const ids: string[] = []
+  const handler = http.get(apiUrl('/api/tasks/{id}/'), ({ params }) => {
+    const answer = answers[Math.min(ids.length, answers.length - 1)] ?? aTask()
+    ids.push(String(params.id))
+    return typeof answer === 'function' ? answer() : HttpResponse.json(answer)
+  })
+  return { handler, ids: () => ids }
+}
+
 /** A promise a handler can wait on, and the function that lets it go. */
 export function held(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined

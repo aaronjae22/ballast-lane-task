@@ -12,6 +12,7 @@ import { logoutSucceeds, refreshAnswers } from '../test/handlers'
 import { createTestQueryClient } from '../test/queryClient'
 import { renderApp } from '../test/render'
 import { server } from '../test/server'
+import { aTask, getTask } from '../test/tasks'
 import { RouteError } from './RouteError'
 
 const loginHeading = { name: 'Log in' }
@@ -106,10 +107,10 @@ describe('the task routes', () => {
   it.each([
     ['/tasks', 'Tasks'],
     ['/tasks/new', 'New task'],
-    ['/tasks/42', 'Task'],
+    ['/tasks/42', 'Task 42'],
     ['/tasks/42/edit', 'Edit task'],
   ])('%s shows its page', async (path, heading) => {
-    server.use(refreshAnswers('access-1').handler)
+    server.use(refreshAnswers('access-1').handler, getTask(aTask({ id: 42 })).handler)
 
     renderApp({ path })
 
