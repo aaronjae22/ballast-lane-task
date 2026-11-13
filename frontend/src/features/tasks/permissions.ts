@@ -1,11 +1,12 @@
 import type { CurrentUser } from '../users/hooks/useCurrentUser'
 import type { Task } from './hooks/useTasks'
 
-// This mirrors the permission matrix in spec section 3 (backend/tasks/domain/permissions.py),
-// for display only (ADR 0018): it decides which actions a user is shown. The API decides what
-// happens, and its 403 or 404 is still handled on every screen, because a task can change
-// between the read and the write. Changing the matrix means changing both copies and both
-// tests: the backend's permission-matrix test and permissions.test.ts.
+// This mirrors the permission matrix and the status transitions in spec section 3
+// (backend/tasks/domain/permissions.py and task.py), for display only (ADR 0018): it decides
+// which actions a user is shown. The API decides what happens, and its 403, 404 or 409 is
+// still handled on every screen, because a task can change between the read and the write.
+// Changing either rule means changing both copies and both tests: the backend's and
+// permissions.test.ts.
 
 /** The rows of the permission matrix. Start, complete and reopen share one rule. */
 export type Action = 'view' | 'edit' | 'assign' | 'change_status' | 'delete'
@@ -29,6 +30,14 @@ export function can(
 
 export type Transition = 'start' | 'complete' | 'reopen'
 
-export function transitionsFrom(_status: Task['status']): Transition[] {
-  throw new Error('not implemented')
+// Start: to do to in progress. Complete: to do or in progress to done. Reopen: done to to do.
+const transitions: Record<Task['status'], readonly Transition[]> = {
+  to_do: ['start', 'complete'],
+  in_progress: ['complete'],
+  done: ['reopen'],
+}
+
+/** The transitions a task in this status can make, in the order its buttons show. */
+export function transitionsFrom(status: Task['status']): readonly Transition[] {
+  return transitions[status]
 }
