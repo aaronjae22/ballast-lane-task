@@ -67,8 +67,25 @@ export function useTaskTransition(id: number): UseMutationResult<Task, Error, Tr
   })
 }
 
-export function useAssignTask(_id: number): UseMutationResult<Task, Error, number | null> {
-  throw new Error('not implemented')
+/** POST /api/tasks/{id}/assign/ with an active user's id, or null to unassign. */
+export function useAssignTask(id: number): UseMutationResult<Task, Error, number | null> {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (assigneeId) =>
+      unwrap<Task>(
+        await api.POST('/api/tasks/{id}/assign/', {
+          params: { path: { id } },
+          body: { assignee_id: assigneeId },
+        }),
+      ),
+    onSuccess: (task) => {
+      storeTask(queryClient, task)
+    },
+    onError: (error) => {
+      refreshAfterError(queryClient, id, error)
+    },
+  })
 }
 
 // After a change (ADR 0018): the returned task replaces the cached one, but only if it is still
