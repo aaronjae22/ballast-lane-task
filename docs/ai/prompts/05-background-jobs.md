@@ -4,7 +4,7 @@
 - **Tool:** Claude Code in VS Code, a fresh session, plan mode first
 - **Branches:** `task/04-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _PR links added after the run_
+- **Result:** six PRs: [#37](https://github.com/aaronjae22/ballast-lane-task/pull/37) ADR 0015, [#38](https://github.com/aaronjae22/ballast-lane-task/pull/38) the assignment email as a Celery task, [#39](https://github.com/aaronjae22/ballast-lane-task/pull/39) queued after commit, [#40](https://github.com/aaronjae22/ballast-lane-task/pull/40) the due-tomorrow digest, [#41](https://github.com/aaronjae22/ballast-lane-task/pull/41) `seed_demo`, [#42](https://github.com/aaronjae22/ballast-lane-task/pull/42) worker and Beat in compose
 
 ## Why the prompt is written this way
 
@@ -89,4 +89,13 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**Plan.** The plan's decisions became ADR 0015 before any code. The plan review changed two:
+- The plan gave the seeded superuser a hard-coded password, which any deployment people can reach would share. It's now `SEED_DEMO_PASSWORD`, with `demo-password` as the local default only.
+- The reminder finds its recipients across all users, which reads like a break of the P0 rule that every task read goes through `visible_tasks`. ADR 0015 now states the rule's scope: a system job that reads across users says so in its docstring, and each digest's own read still goes through `visible_tasks`.
+
+**Build.**
+- The email is queued with a robust `on_commit` callback ([7893d52](https://github.com/aaronjae22/ballast-lane-task/commit/7893d52)): a rolled-back write sends nothing, and a broker outage after the commit is logged instead of turning a saved write into a 500.
+- `monkeypatch` couldn't restore Celery's eager flag, because Celery answers it from its defaults without storing it; a fixture saves and restores it instead ([62f50d6](https://github.com/aaronjae22/ballast-lane-task/commit/62f50d6)).
+- CI's compose job now proves the whole chain: an assignment email and the digests reach Mailpit, and a second seed creates nothing.
+
+**Codex review.** No findings on #37 to #42.

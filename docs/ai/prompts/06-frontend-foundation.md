@@ -4,7 +4,7 @@
 - **Tool:** Claude Code in VS Code, a fresh session, plan mode first
 - **Branches:** `task/05-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _PR links added after the run_
+- **Result:** thirteen PRs, [#43](https://github.com/aaronjae22/ballast-lane-task/pull/43) ADR 0016 to [#55](https://github.com/aaronjae22/ballast-lane-task/pull/55) ADR 0017: the scaffold, the typed API client and its contract check, the session, refresh, the auth-aware fetch, the AuthProvider, routes, the login page, the AppShell, and the frontend in compose
 
 ## Why the prompt is written this way
 
@@ -81,4 +81,15 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**Plan.** The plan's decisions became ADR 0016 before any code. The plan review changed two things:
+- The silent refresh on every page load answered 401 for a visitor with no cookie, which would leave a red failed request in the console on every fresh visit, against the brief's no-console-warnings goal. A refresh with no cookie now answers 204 (#47), recorded in ADR 0016 as an amendment to ADR 0014.
+- Generating the schema needs `DJANGO_DEBUG=true`, since the settings refuse the built-in secret key otherwise; the command and the CI job set it.
+
+**Build.** The OpenAPI schema and the TypeScript types are committed, and a CI job fails if either is stale (#45), so the frontend can't drift from the API.
+
+**Codex review.** Three findings, all fixed with a failing test first, and all races in the session:
+- #45, P2: openapi-fetch repeats array parameters, so `ordering` lost all but its last field ([0abd8d8](https://github.com/aaronjae22/ballast-lane-task/commit/0abd8d8)).
+- #46, P2: a login that answered after a logout signed the user back in ([0aa55a2](https://github.com/aaronjae22/ballast-lane-task/commit/0aa55a2)).
+- #48, P2: a refresh started during a logout could restore the token ([4a58f8b](https://github.com/aaronjae22/ballast-lane-task/commit/4a58f8b)).
+
+These rules, and two more from building the session, are recorded in ADR 0017 (#55), so iteration 6's hooks are bound by them.

@@ -41,7 +41,7 @@ The agents wrote most of the code, so the risk I cared about was ending up with 
 
 This followed from the same goal. The first scaffold run produced one commit of about 1,400 lines. It worked, but I couldn't have reviewed it properly, so I set it aside and restarted with a rule written into every prompt: PRs of about 300 changed lines, each made of commits that do one thing and say why.
 
-The result is 71 PRs and about 280 commits. A rule lands as a failing-test commit followed by the commit that makes it pass, so the history shows the TDD, and any commit can be read on its own. It's slower than letting an agent write a whole feature, but each change was small enough to understand, question and, when needed, send back.
+The result is 73 PRs and 288 commits before the final docs. A rule lands as a failing-test commit followed by the commit that makes it pass, so the history shows the TDD, and any commit can be read on its own. It's slower than letting an agent write a whole feature, but each change was small enough to understand, question and, when needed, send back.
 
 ## The order of the work
 
