@@ -102,6 +102,7 @@ describe('changing the status on the task page', () => {
 
     expect(screen.getByRole('button', { name: 'Start' })).toHaveAttribute('data-loading', 'true')
     expect(screen.getByRole('button', { name: 'Complete' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'More' })).toBeDisabled()
     response.release()
     expect(await screen.findByText('Task started.')).toBeInTheDocument()
   })
