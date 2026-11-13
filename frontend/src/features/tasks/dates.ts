@@ -28,3 +28,7 @@ export function formatDay(day: string): string {
   const [year, month, date] = day.split('-').map(Number) as [number, number, number]
   return dayFormat.format(Date.UTC(year, month - 1, date))
 }
+
+export function formatTimestamp(_iso: string): string {
+  throw new Error('not implemented')
+}
