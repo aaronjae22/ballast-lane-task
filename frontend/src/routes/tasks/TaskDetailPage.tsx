@@ -1,12 +1,11 @@
-import { Anchor, Button, Paper, Skeleton, Stack, Title } from '@mantine/core'
+import { Anchor, Paper, Stack, Title } from '@mantine/core'
 import { Link, useParams } from 'react-router'
-import { taskNotFound } from '../../api/errorMessages'
 import { ApiError } from '../../api/errors'
-import { EmptyState } from '../../components/EmptyState'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
 import { TaskDetails } from '../../features/tasks/components/TaskDetails'
 import { positiveInteger } from '../../features/tasks/filters'
 import { useTask } from '../../features/tasks/hooks/useTasks'
+import { TaskLoading, TaskNotFound } from './TaskPageStates'
 
 export function TaskDetailPage() {
   const { taskId = '' } = useParams()
@@ -18,14 +17,7 @@ export function TaskDetailPage() {
 function TaskView({ id }: { id: number }) {
   const task = useTask(id)
 
-  if (task.isPending) {
-    return (
-      <Stack role="status" aria-label="Loading the task" gap="sm">
-        <Skeleton height={36} width="60%" />
-        <Skeleton height={160} radius="md" />
-      </Stack>
-    )
-  }
+  if (task.isPending) return <TaskLoading />
   if (task.isError) {
     if (task.error instanceof ApiError && task.error.status === 404) return <TaskNotFound />
     return (
@@ -58,19 +50,5 @@ function BackToTasks() {
     <Anchor component={Link} to="/tasks" size="sm">
       Back to tasks
     </Anchor>
-  )
-}
-
-function TaskNotFound() {
-  return (
-    <EmptyState
-      title={taskNotFound.title}
-      message={taskNotFound.message}
-      action={
-        <Button component={Link} to="/tasks" variant="light">
-          Back to tasks
-        </Button>
-      }
-    />
   )
 }
