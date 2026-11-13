@@ -43,8 +43,28 @@ export function useUpdateTask(id: number): UseMutationResult<Task, Error, TaskUp
   })
 }
 
-export function useTaskTransition(_id: number): UseMutationResult<Task, Error, Transition> {
-  throw new Error('not implemented')
+/** POST /api/tasks/{id}/start/, /complete/ or /reopen/, which take no body. */
+export function useTaskTransition(id: number): UseMutationResult<Task, Error, Transition> {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (transition) => {
+      const options = { params: { path: { id } } }
+      const result =
+        transition === 'start'
+          ? await api.POST('/api/tasks/{id}/start/', options)
+          : transition === 'complete'
+            ? await api.POST('/api/tasks/{id}/complete/', options)
+            : await api.POST('/api/tasks/{id}/reopen/', options)
+      return unwrap<Task>(result)
+    },
+    onSuccess: (task) => {
+      storeTask(queryClient, task)
+    },
+    onError: (error) => {
+      refreshAfterError(queryClient, id, error)
+    },
+  })
 }
 
 // After a change (ADR 0018): the returned task replaces the cached one, but only if it is still
