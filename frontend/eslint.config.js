@@ -7,18 +7,15 @@ import tseslint from 'typescript-eslint'
 
 export default defineConfig([
   // src/api/generated/ is written by npm run gen:api and never edited (ADR 0016).
-  globalIgnores(['dist', 'coverage', 'src/api/generated']),
+  // test-results/ and playwright-report/ are Playwright's output.
+  globalIgnores(['dist', 'coverage', 'src/api/generated', 'test-results', 'playwright-report']),
   {
     files: ['**/*.js'],
     extends: [js.configs.recommended],
   },
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.strictTypeChecked,
-      reactHooks.configs.flat.recommended,
-    ],
+    extends: [js.configs.recommended, tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
@@ -26,5 +23,10 @@ export default defineConfig([
       // A leading underscore marks a parameter that's deliberately unused, as tsc allows.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  // React's rules for the app only: e2e/'s Playwright fixtures call a `use` that isn't React's.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat.recommended],
   },
 ])

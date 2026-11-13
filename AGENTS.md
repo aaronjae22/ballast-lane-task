@@ -39,6 +39,7 @@ Created in iteration 0. Whoever adds or changes a command updates this list in t
   - Type check: `npm run typecheck`. Build: `npm run build`
   - Lint and format check: `npm run lint` (ESLint with type information, then `prettier --check`). Format: `npm run format`
   - Tests: `npm test` (Vitest, once) or `npm run test:watch`. A test fails if it logs a console warning or error it didn't declare with `expectConsole`
+  - Browser console check: `npm run e2e` (Playwright in Chromium, ADR 0018). Install the browser once with `npx playwright install chromium`. It needs Postgres with the demo data and Redis, as runserver does: set `DATABASE_URL` (the default is the compose db on 5433) and run `seed_demo` first. It starts runserver and Vite unless they're already running. Any console warning or error, or uncaught page error, fails it. It logs in four times, under the login throttle of 5 a minute, so a second run within a minute can fail with 429
   - API types: `npm run gen:api` after any change to the API. It writes the schema from the backend (through uv; no database, Redis or secret needed) and the types from the schema into `src/api/generated/`, which is committed and never edited by hand. `npm run gen:types` redoes only the types, without Python. CI fails if either is stale
 - pre-commit (from the repo root; needs `uv sync` in `backend/` and `npm ci` in `frontend/` first, because the hooks run the tools those install):
   - Install the git hook once per clone: `uv run --project backend pre-commit install`
