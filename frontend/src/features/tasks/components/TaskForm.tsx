@@ -2,46 +2,55 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Alert, Button, Group, Select, Stack, Textarea, TextInput } from '@mantine/core'
 import { DatePickerInput } from '@mantine/dates'
 import { useState } from 'react'
-import { Controller, useForm } from 'react-hook-form'
+import { Controller, useForm, type Control } from 'react-hook-form'
 import { Link } from 'react-router'
 import { describeError, fieldErrorsOf } from '../../../api/errorMessages'
 import { useActiveUsers } from '../../users/hooks/useActiveUsers'
-import { emptyTaskForm, taskFormSchema, type TaskFormValues } from '../schemas'
+import { emptyTaskForm, taskFormSchema, type ChangedFields, type TaskFormValues } from '../schemas'
 
 interface TaskFormProps {
   submitLabel: string
   /** Where Cancel goes. */
   cancelTo: string
-  /** Sends the values; a rejection's field errors go on the fields, anything else above them. */
-  onSubmit: (values: TaskFormValues) => Promise<unknown>
+  /** The values the form starts with: empty to create, the task's own to edit. */
+  defaultValues?: TaskFormValues
+  /** Edit has no assignee field: assigning has its own endpoint (ADR 0004). */
+  withAssignee?: boolean
+  /**
+   * Sends the values, with the fields the user changed. A rejection's field errors go on the
+   * fields, anything else above them.
+   */
+  onSubmit: (values: TaskFormValues, changed: ChangedFields) => Promise<unknown>
 }
 
 type Field = keyof TaskFormValues
 
-function isField(key: string): key is Field {
-  return key in emptyTaskForm
-}
-
-export function TaskForm({ submitLabel, cancelTo, onSubmit }: TaskFormProps) {
-  const users = useActiveUsers()
+export function TaskForm({
+  submitLabel,
+  cancelTo,
+  defaultValues = emptyTaskForm,
+  withAssignee = true,
+  onSubmit,
+}: TaskFormProps) {
   const [failure, setFailure] = useState<{ title: string; message: string } | null>(null)
   const {
     control,
     register,
     handleSubmit,
     setError,
-    formState: { errors, isSubmitting },
-  } = useForm<TaskFormValues>({
-    resolver: zodResolver(taskFormSchema),
-    defaultValues: emptyTaskForm,
-  })
+    // dirtyFields is read here, during render: React Hook Form tracks only what's read.
+    formState: { errors, isSubmitting, dirtyFields },
+  } = useForm<TaskFormValues>({ resolver: zodResolver(taskFormSchema), defaultValues })
+  // A field error for a field the form doesn't show would be invisible, so it goes above.
+  const isShown = (key: string): key is Field =>
+    key in emptyTaskForm && (withAssignee || key !== 'assignee_id')
 
   const submit = handleSubmit(async (values) => {
     setFailure(null)
     try {
-      await onSubmit(values)
+      await onSubmit(values, dirtyFields)
     } catch (error) {
-      setFailure(failureOf(error, setError))
+      setFailure(failureOf(error, isShown, setError))
     }
   })
 
@@ -87,34 +96,7 @@ export function TaskForm({ submitLabel, cancelTo, onSubmit }: TaskFormProps) {
             />
           )}
         />
-        <Controller
-          control={control}
-          name="assignee_id"
-          render={({ field }) => (
-            <Select
-              label="Assignee"
-              placeholder="Unassigned"
-              clearable
-              searchable
-              data={(users.data ?? []).map((user) => ({
-                value: String(user.id),
-                label: user.name,
-              }))}
-              value={field.value === null ? null : String(field.value)}
-              onChange={(value) => {
-                field.onChange(value === null ? null : Number(value))
-              }}
-              onBlur={field.onBlur}
-              disabled={users.isError}
-              description={
-                users.isError
-                  ? "Couldn't load the users. You can assign the task later."
-                  : undefined
-              }
-              error={errors.assignee_id?.message}
-            />
-          )}
-        />
+        {withAssignee && <AssigneeSelect control={control} error={errors.assignee_id?.message} />}
         <Group justify="flex-end">
           <Button component={Link} to={cancelTo} variant="default">
             Cancel
@@ -128,17 +110,54 @@ export function TaskForm({ submitLabel, cancelTo, onSubmit }: TaskFormProps) {
   )
 }
 
+// Its own component, so only a form with the field loads the users.
+function AssigneeSelect({
+  control,
+  error,
+}: {
+  control: Control<TaskFormValues>
+  error: string | undefined
+}) {
+  const users = useActiveUsers()
+  return (
+    <Controller
+      control={control}
+      name="assignee_id"
+      render={({ field }) => (
+        <Select
+          label="Assignee"
+          placeholder="Unassigned"
+          clearable
+          searchable
+          data={(users.data ?? []).map((user) => ({ value: String(user.id), label: user.name }))}
+          value={field.value === null ? null : String(field.value)}
+          onChange={(value) => {
+            field.onChange(value === null ? null : Number(value))
+          }}
+          onBlur={field.onBlur}
+          disabled={users.isError}
+          description={
+            users.isError ? "Couldn't load the users. You can assign the task later." : undefined
+          }
+          error={error}
+        />
+      )}
+    />
+  )
+}
+
 // A 400's field errors go on their fields (ADR 0018). What's left, or any other error, is the
 // alert's to say.
 function failureOf(
   error: unknown,
+  isShown: (key: string) => key is Field,
   setError: (field: Field, error: { type: string; message: string }) => void,
 ): { title: string; message: string } | null {
   const fields = fieldErrorsOf(error)
   if (fields === null) return describeError(error)
   const others: string[] = []
   for (const [key, messages] of Object.entries(fields)) {
-    if (isField(key)) setError(key, { type: 'server', message: messages.join(' ') })
+    if (isShown(key)) setError(key, { type: 'server', message: messages.join(' ') })
     else others.push(...messages)
   }
   if (others.length === 0) return null
