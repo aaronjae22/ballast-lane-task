@@ -120,7 +120,8 @@ export function changeFilters(filters: TaskFilters, change: Partial<TaskFilters>
 
 // The API takes ids and pages as positive integers. Beyond JavaScript's safe range a number
 // would be rounded into another one, so it's treated as invalid.
-function positiveInteger(text: string): number | null {
+/** A positive whole number written plainly (no sign, no leading zero), or null. */
+export function positiveInteger(text: string): number | null {
   if (!/^[1-9]\d*$/.test(text)) return null
   const value = Number(text)
   return Number.isSafeInteger(value) ? value : null
