@@ -15,11 +15,7 @@ export default defineConfig([
   },
   {
     files: ['**/*.{ts,tsx}'],
-    extends: [
-      js.configs.recommended,
-      tseslint.configs.strictTypeChecked,
-      reactHooks.configs.flat.recommended,
-    ],
+    extends: [js.configs.recommended, tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
     },
@@ -27,5 +23,10 @@ export default defineConfig([
       // A leading underscore marks a parameter that's deliberately unused, as tsc allows.
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  // React's rules for the app only: e2e/'s Playwright fixtures call a `use` that isn't React's.
+  {
+    files: ['src/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat.recommended],
   },
 ])
