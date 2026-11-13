@@ -1,9 +1,12 @@
-import { Button, Group } from '@mantine/core'
+import { Button, Group, Menu } from '@mantine/core'
+import { useState } from 'react'
+import { Link } from 'react-router'
 import { notifyError, notifySuccess } from '../../../components/notify'
 import { useCurrentUser } from '../../users/hooks/useCurrentUser'
 import { useTaskTransition } from '../hooks/useTaskMutations'
 import type { Task } from '../hooks/useTasks'
 import { can, transitionsFrom, type Transition } from '../permissions'
+import { AssignModal } from './AssignModal'
 
 const labels: Record<Transition, string> = {
   start: 'Start',
@@ -18,18 +21,24 @@ const results: Record<Transition, string> = {
 }
 
 /**
- * The status changes the user may make to the task, for the list's rows and the task page
- * (ADR 0018). While one runs, its button spins and the others are disabled.
+ * What the user may do to the task, for the list's rows and the task page (ADR 0018): the
+ * status changes as buttons, then a More menu with Assign and Edit. While a status change
+ * runs, its button spins and the task's other actions are disabled.
  */
 export function TaskActions({ task }: { task: Task }) {
   const me = useCurrentUser()
   const transition = useTaskTransition(task.id)
+  const [assigning, setAssigning] = useState(false)
+  const busy = transition.isPending
+  const canChangeStatus = can(me.data, task, 'change_status')
+  const canAssign = can(me.data, task, 'assign')
+  const canEdit = can(me.data, task, 'edit')
 
-  if (!can(me.data, task, 'change_status')) return null
+  if (!canChangeStatus && !canAssign && !canEdit) return null
 
   return (
     <Group gap="xs">
-      {transitionsFrom(task.status).map((name) => (
+      {(canChangeStatus ? transitionsFrom(task.status) : []).map((name) => (
         <Button
           key={name}
           size="xs"
@@ -46,6 +55,40 @@ export function TaskActions({ task }: { task: Task }) {
           {labels[name]}
         </Button>
       ))}
+      {(canAssign || canEdit) && (
+        <Menu position="bottom-end">
+          <Menu.Target>
+            <Button size="xs" variant="default" disabled={busy}>
+              More
+            </Button>
+          </Menu.Target>
+          <Menu.Dropdown>
+            {canAssign && (
+              <Menu.Item
+                onClick={() => {
+                  setAssigning(true)
+                }}
+              >
+                Assign…
+              </Menu.Item>
+            )}
+            {canEdit && (
+              <Menu.Item component={Link} to={`/tasks/${String(task.id)}/edit`}>
+                Edit
+              </Menu.Item>
+            )}
+          </Menu.Dropdown>
+        </Menu>
+      )}
+      {canAssign && (
+        <AssignModal
+          task={task}
+          opened={assigning}
+          onClose={() => {
+            setAssigning(false)
+          }}
+        />
+      )}
     </Group>
   )
 }
