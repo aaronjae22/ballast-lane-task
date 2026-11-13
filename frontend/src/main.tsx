@@ -1,6 +1,7 @@
 import '@mantine/core/styles.css'
-// After core's, which it builds on.
+// After core's, which they build on.
 import '@mantine/dates/styles.css'
+import '@mantine/notifications/styles.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter } from 'react-router'
