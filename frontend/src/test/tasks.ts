@@ -54,6 +54,20 @@ export function listTasks(...answers: Answer[]) {
   return { handler, requests: () => requests }
 }
 
+/**
+ * Answers POST /api/tasks/ in order, one answer per request; the last repeats. An answer is the
+ * created task (a 201), or a function for anything else. `bodies()` are the JSON bodies received.
+ */
+export function createTask(...answers: (Task | (() => Response | Promise<Response>))[]) {
+  const bodies: unknown[] = []
+  const handler = http.post(apiUrl('/api/tasks/'), async ({ request }) => {
+    const answer = answers[Math.min(bodies.length, answers.length - 1)] ?? aTask()
+    bodies.push(await request.json())
+    return typeof answer === 'function' ? answer() : HttpResponse.json(answer, { status: 201 })
+  })
+  return { handler, bodies: () => bodies }
+}
+
 /** A promise a handler can wait on, and the function that lets it go. */
 export function held(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined
