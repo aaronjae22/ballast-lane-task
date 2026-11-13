@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { users } from '../../test/handlers'
 import { aTask, summaryOf } from '../../test/tasks'
-import { can, type Action } from './permissions'
+import { can, transitionsFrom, type Action, type Transition } from './permissions'
 
 // The permission matrix of spec section 3, row for row as backend/tests/unit/permission_matrix.py
 // has it. A change to one needs the same change to the other (ADR 0018, AGENTS.md). The API
@@ -67,5 +67,17 @@ describe('before the signed-in user has loaded', () => {
     expect((Object.keys(matrix) as Action[]).some((action) => can(undefined, task, action))).toBe(
       false,
     )
+  })
+})
+
+// The status transitions of spec section 3, as _TRANSITIONS in backend/tasks/domain/task.py
+// has them: which buttons a task shows. The API still answers any other move with 409.
+describe('the transitions each status offers', () => {
+  it.each([
+    ['to_do', ['start', 'complete']],
+    ['in_progress', ['complete']],
+    ['done', ['reopen']],
+  ] as const)('%s: %j', (status, transitions: readonly Transition[]) => {
+    expect(transitionsFrom(status)).toEqual(transitions)
   })
 })

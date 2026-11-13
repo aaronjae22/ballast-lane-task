@@ -6,6 +6,7 @@ import {
 } from '@tanstack/react-query'
 import { ApiError, unwrap } from '../../../api/errors'
 import { useApi } from '../../../auth/useAuth'
+import type { Transition } from '../permissions'
 import type { TaskCreateRequest, TaskUpdateRequest } from '../schemas'
 import { taskKeys } from './keys'
 import type { Task } from './useTasks'
@@ -33,6 +34,30 @@ export function useUpdateTask(id: number): UseMutationResult<Task, Error, TaskUp
   return useMutation({
     mutationFn: async (body) =>
       unwrap<Task>(await api.PATCH('/api/tasks/{id}/', { params: { path: { id } }, body })),
+    onSuccess: (task) => {
+      storeTask(queryClient, task)
+    },
+    onError: (error) => {
+      refreshAfterError(queryClient, id, error)
+    },
+  })
+}
+
+/** POST /api/tasks/{id}/start/, /complete/ or /reopen/, which take no body. */
+export function useTaskTransition(id: number): UseMutationResult<Task, Error, Transition> {
+  const api = useApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (transition) => {
+      const options = { params: { path: { id } } }
+      const result =
+        transition === 'start'
+          ? await api.POST('/api/tasks/{id}/start/', options)
+          : transition === 'complete'
+            ? await api.POST('/api/tasks/{id}/complete/', options)
+            : await api.POST('/api/tasks/{id}/reopen/', options)
+      return unwrap<Task>(result)
+    },
     onSuccess: (task) => {
       storeTask(queryClient, task)
     },

@@ -96,6 +96,23 @@ export function updateTask(...answers: (Task | (() => Response | Promise<Respons
   return { handler, bodies: () => bodies }
 }
 
+/**
+ * Answers POST /api/tasks/{id}/start/, /complete/ and /reopen/ in order, one answer per
+ * request; the last repeats. An answer is the changed task, or a function for anything else.
+ * `calls()` are what was asked, as "7/start".
+ */
+export function changeStatus(...answers: (Task | (() => Response | Promise<Response>))[]) {
+  const calls: string[] = []
+  const handlers = (['start', 'complete', 'reopen'] as const).map((action) =>
+    http.post(apiUrl(`/api/tasks/{id}/${action}/` as const), ({ params }) => {
+      const answer = answers[Math.min(calls.length, answers.length - 1)] ?? aTask()
+      calls.push(`${String(params.id)}/${action}`)
+      return typeof answer === 'function' ? answer() : HttpResponse.json(answer)
+    }),
+  )
+  return { handlers, calls: () => calls }
+}
+
 /** A promise a handler can wait on, and the function that lets it go. */
 export function held(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined
