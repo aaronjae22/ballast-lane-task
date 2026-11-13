@@ -88,6 +88,13 @@ export function useAssignTask(id: number): UseMutationResult<Task, Error, number
   })
 }
 
+export function useDeleteTask(
+  _id: number,
+  _options: { onDeleted?: () => unknown } = {},
+): UseMutationResult<void, Error, void> {
+  throw new Error('not implemented')
+}
+
 // After a change (ADR 0018): the returned task replaces the cached one, but only if it is still
 // cached. After a logout the cache is empty (ADR 0016), and a late answer mustn't refill it.
 // Every list is marked stale, since the change can move the task in or out of one.

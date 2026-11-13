@@ -128,6 +128,20 @@ export function assignTask(...answers: (Task | (() => Response | Promise<Respons
   return { handler, bodies: () => bodies }
 }
 
+/**
+ * Answers DELETE /api/tasks/{id}/ in order, one answer per request; the last repeats. With no
+ * answers, a 204. `ids()` are the ids deleted.
+ */
+export function deleteTask(...answers: (() => Response | Promise<Response>)[]) {
+  const ids: string[] = []
+  const handler = http.delete(apiUrl('/api/tasks/{id}/'), ({ params }) => {
+    const answer = answers[Math.min(ids.length, answers.length - 1)]
+    ids.push(String(params.id))
+    return answer ? answer() : new HttpResponse(null, { status: 204 })
+  })
+  return { handler, ids: () => ids }
+}
+
 /** A promise a handler can wait on, and the function that lets it go. */
 export function held(): { wait: Promise<void>; release: () => void } {
   let release: () => void = () => undefined
