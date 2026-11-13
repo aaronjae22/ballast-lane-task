@@ -46,3 +46,15 @@ export function toCreateRequest(values: TaskFormValues): TaskCreateRequest {
     assignee_id: values.assignee_id,
   }
 }
+
+export type TaskUpdateRequest = components['schemas']['PatchedTaskUpdateRequest']
+
+/** Which fields the user changed, as React Hook Form's dirtyFields has them. */
+export type ChangedFields = Partial<Record<keyof TaskFormValues, boolean>>
+
+export function toUpdateRequest(
+  _values: TaskFormValues,
+  _changed: ChangedFields,
+): TaskUpdateRequest {
+  throw new Error('not implemented')
+}
