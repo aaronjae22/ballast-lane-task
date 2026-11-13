@@ -2,6 +2,7 @@ import { Anchor, Group, Paper, Stack, Text } from '@mantine/core'
 import { Link } from 'react-router'
 import { formatDay } from '../dates'
 import type { Task } from '../hooks/useTasks'
+import { TaskActions } from './TaskActions'
 import { OverdueBadge, TaskStatusBadge } from './TaskStatusBadge'
 
 /** The list below the `sm` breakpoint: one card per task, which fits in 360 px. */
@@ -34,6 +35,9 @@ export function TaskCards({ tasks }: { tasks: Task[] }) {
           <Text size="sm" c="dimmed">
             Owner: {task.owner.name} · Assignee: {task.assignee?.name ?? 'Unassigned'}
           </Text>
+          <Group mt="xs">
+            <TaskActions task={task} />
+          </Group>
         </Paper>
       ))}
     </Stack>

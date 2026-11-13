@@ -2,6 +2,7 @@ import { Anchor, Group, Table, Text } from '@mantine/core'
 import { Link } from 'react-router'
 import { formatDay } from '../dates'
 import type { Task } from '../hooks/useTasks'
+import { TaskActions } from './TaskActions'
 import { OverdueBadge, TaskStatusBadge } from './TaskStatusBadge'
 
 /** The list from the `sm` breakpoint up: a column for each detail. */
@@ -15,6 +16,7 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
           <Table.Th>Due date</Table.Th>
           <Table.Th>Owner</Table.Th>
           <Table.Th>Assignee</Table.Th>
+          <Table.Th>Actions</Table.Th>
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
@@ -43,6 +45,9 @@ export function TaskTable({ tasks }: { tasks: Task[] }) {
                   Unassigned
                 </Text>
               )}
+            </Table.Td>
+            <Table.Td>
+              <TaskActions task={task} />
             </Table.Td>
           </Table.Tr>
         ))}

@@ -2,6 +2,7 @@ import { Anchor, Button, Group, Paper, Stack, Title } from '@mantine/core'
 import { Link, useParams } from 'react-router'
 import { ApiError } from '../../api/errors'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
+import { TaskActions } from '../../features/tasks/components/TaskActions'
 import { TaskDetails } from '../../features/tasks/components/TaskDetails'
 import { positiveInteger } from '../../features/tasks/filters'
 import { useTask } from '../../features/tasks/hooks/useTasks'
@@ -38,12 +39,13 @@ function TaskView({ id }: { id: number }) {
   return (
     <Stack gap="md">
       <BackToTasks />
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <Title order={1} style={{ overflowWrap: 'anywhere' }}>
-          {task.data.title}
-        </Title>
+      <Title order={1} style={{ overflowWrap: 'anywhere' }}>
+        {task.data.title}
+      </Title>
+      <Group gap="xs">
+        <TaskActions task={task.data} />
         {can(me.data, task.data, 'edit') && (
-          <Button component={Link} to={`/tasks/${String(id)}/edit`} variant="default">
+          <Button component={Link} to={`/tasks/${String(id)}/edit`} variant="default" size="xs">
             Edit
           </Button>
         )}
