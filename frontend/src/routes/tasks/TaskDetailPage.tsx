@@ -1,5 +1,5 @@
 import { Anchor, Paper, Stack, Title } from '@mantine/core'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { ApiError } from '../../api/errors'
 import { QueryErrorAlert } from '../../components/QueryErrorAlert'
 import { TaskActions } from '../../features/tasks/components/TaskActions'
@@ -17,6 +17,7 @@ export function TaskDetailPage() {
 
 function TaskView({ id }: { id: number }) {
   const task = useTask(id)
+  const navigate = useNavigate()
 
   if (task.isPending) return <TaskLoading />
   if (task.isError) {
@@ -39,7 +40,7 @@ function TaskView({ id }: { id: number }) {
       <Title order={1} style={{ overflowWrap: 'anywhere' }}>
         {task.data.title}
       </Title>
-      <TaskActions task={task.data} />
+      <TaskActions task={task.data} onDeleted={() => navigate('/tasks')} />
       <Paper withBorder radius="md" p="md">
         <TaskDetails task={task.data} />
       </Paper>
