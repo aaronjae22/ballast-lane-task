@@ -59,6 +59,19 @@ export const users = {
   carol: { id: 3, username: 'carol', name: 'Carol Diaz', is_admin: false },
 } satisfies Record<string, Schemas['CurrentUser']>
 
+/** An admin. Not in `users`, so the pickers' default list stays alice, bob and carol. */
+export const admin = {
+  id: 4,
+  username: 'admin',
+  name: 'Ada Admin',
+  is_admin: true,
+} satisfies Schemas['CurrentUser']
+
+/** /api/users/me/ answers with this user, whatever the token. */
+export function currentUser(user: Schemas['CurrentUser']) {
+  return http.get(apiUrl('/api/users/me/'), () => HttpResponse.json(user))
+}
+
 /** /api/users/: the active users as {id, name}, ordered by username as the API orders them. */
 export function activeUsers(list = Object.values(users)) {
   return http.get(apiUrl('/api/users/'), () =>
