@@ -101,6 +101,6 @@ The second round applied all five and changed nothing else.
 
 **How the output was validated.** Besides CI and Codex on every PR, I reran each merged PR's unit tests on a clean copy with warnings as errors. For the use-case permission matrix, which passes the moment it's added, I broke the code on purpose: with `UpdateTask` checking the change-status permission, exactly one case failed, the assignee editing. The agent ran the same check before committing.
 
-**Codex review.** _To add: findings on #8 to #12 and their fixes._
+**Codex review.** No findings on #8 to #12.
 
 **Left open, carried into iteration 2.** No static type checker runs in CI, so nothing checks that the fakes, and later the adapters, match the ports. `AssignTask` has no test proving access is checked before the values, as `UpdateTask` has. Loading a task and saving it later can lose a concurrent update. `visible_tasks` must be tested against the same matrix rows as the domain.

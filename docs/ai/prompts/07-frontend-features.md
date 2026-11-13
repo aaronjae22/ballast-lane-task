@@ -4,7 +4,7 @@
 - **Tool:** Claude Code in VS Code, a fresh session, plan mode first
 - **Branches:** `task/06-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _PR links added after the run_
+- **Result:** sixteen PRs, [#56](https://github.com/aaronjae22/ballast-lane-task/pull/56) ADR 0018 to [#71](https://github.com/aaronjae22/ballast-lane-task/pull/71) the browser console check: routes, error messages, URL filters, the task list with paging, ordering, search and filters, create, detail, the permission mirror, edit, transitions, assign and delete. Then two follow-ups: [#72](https://github.com/aaronjae22/ballast-lane-task/pull/72) an Unassigned option and a Back link that keeps the list's filters and [#73](https://github.com/aaronjae22/ballast-lane-task/pull/73) the transitions named in ADR 0018
 
 ## Why the prompt is written this way
 
@@ -82,4 +82,14 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**Plan.** The plan's decisions became ADR 0018 before any code. The plan review caught one conflict: to show only the actions a user may take, the frontend copies domain rules, which the Codex review rules flag as rules outside the domain. ADR 0018 now states their scope (display hints only; the API decides, and its errors are still handled), and `AGENTS.md` requires a frontend permissions test row for every permission change ([e5eacca](https://github.com/aaronjae22/ballast-lane-task/commit/e5eacca)).
+
+**Build.** A Playwright run in Chromium fails on any console warning or error, in CI on every PR (#71), so the brief's "no warnings in the browser console" is checked, not assumed.
+
+**Codex review.**
+- #62, P2: a search still waiting to be written could undo Back or Clear filters. Fixed with the regression tests first ([747fdd8](https://github.com/aaronjae22/ballast-lane-task/commit/747fdd8)).
+- #67, P1: the edit mutation's cache updates weren't tested. Tests that inspect the query cache after a save ([be013ed](https://github.com/aaronjae22/ballast-lane-task/commit/be013ed)).
+- #69, P2: closing the Assign dialog while saving lost the pending state, so a reopened dialog could assign twice. Failing test first, then the save moved to the task's actions ([ab97e9e](https://github.com/aaronjae22/ballast-lane-task/commit/ab97e9e)).
+- #71, P1, declined: Codex said the e2e login couldn't find the password field by its role. Playwright gives a password input the `textbox` role, and the CI job had logged in through that locator, so I replied with the evidence and changed nothing.
+
+**Follow-ups.** In #72, Mantine's clear button is hidden from keyboard and screen-reader users, so both assignee pickers got an explicit Unassigned option, and Back to tasks now returns to the list with its filters. #73 records the status transitions as a third display copy in ADR 0018.

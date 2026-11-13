@@ -4,7 +4,7 @@
 - **Tool:** Claude Code in VS Code, a fresh session, plan mode first
 - **Branches:** `task/02-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _PR links added after the run_
+- **Result:** seven PRs: [#15](https://github.com/aaronjae22/ballast-lane-task/pull/15) ADR 0013, [#16](https://github.com/aaronjae22/ballast-lane-task/pull/16) Task model, migration and admin, [#17](https://github.com/aaronjae22/ballast-lane-task/pull/17) ORM repository, [#18](https://github.com/aaronjae22/ballast-lane-task/pull/18) UserLookup and Clock adapters, [#19](https://github.com/aaronjae22/ballast-lane-task/pull/19) `visible_tasks`, [#20](https://github.com/aaronjae22/ballast-lane-task/pull/20) TaskFilter, [#21](https://github.com/aaronjae22/ballast-lane-task/pull/21) overdue and assignee filters
 
 ## Why the prompt is written this way
 
@@ -86,4 +86,10 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**Plan.** The plan's decisions became ADR 0013 before any code: admins are `is_staff`, read through `User.is_admin`; foreign keys use `PROTECT`; no database check constraints; the repository's `get()` locks the row with `select_for_update`, and the caller holds the transaction; date bounds are inclusive; an invalid filter value is a 400, never ignored. The plan review moved the check that the migration reverses into the PR that adds the migration.
+
+**Build.** Two things closed gaps left open by iteration 1. The ORM repository runs the same contract test as the in-memory fake, so the fake can't drift from the real adapter (#17). Locking the row in `get()` means a load and a later save can't lose a concurrent update. The overdue cases are shared between the domain tests and the filter tests, so both read "overdue" the same way (#21).
+
+**Codex review.**
+- #16, P0: the Django admin read tasks without `visible_tasks`. Nothing leaked, since only admins reach the admin, but it was a second definition of visibility. Fixed in #19, where the selector landed: failing tests first ([222f4be](https://github.com/aaronjae22/ballast-lane-task/commit/222f4be)), then the admin reading through it ([dff5be2](https://github.com/aaronjae22/ballast-lane-task/commit/dff5be2)).
+- #21, P2: an `assignee` of more than 4,300 digits passed the digit check and made `int()` raise, a 500. Failing tests first ([9dae42b](https://github.com/aaronjae22/ballast-lane-task/commit/9dae42b)), then a 19-digit bound from the column ([313dd15](https://github.com/aaronjae22/ballast-lane-task/commit/313dd15)).

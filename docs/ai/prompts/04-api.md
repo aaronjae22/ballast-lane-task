@@ -4,7 +4,7 @@
 - **Tool:** Claude Code in VS Code, a fresh session, plan mode first
 - **Branches:** `task/03-NN-short-name`, one per PR
 - **The agent reads:** `AGENTS.md`, `CLAUDE.md`, `docs/spec.md`, `docs/adr/`
-- **Result:** _PR links added after the run_
+- **Result:** fourteen PRs, [#22](https://github.com/aaronjae22/ballast-lane-task/pull/22) ADR 0014 to [#35](https://github.com/aaronjae22/ballast-lane-task/pull/35) action endpoints: the schema and Swagger, JSON only and throttling, the exception handler, the composition root, JWT login, refresh and logout, ordering, reads, filters over HTTP, create, edit and delete, and the action endpoints
 
 ## Why the prompt is written this way
 
@@ -95,4 +95,13 @@ HOW TO WORK
 
 ## Review notes
 
-_Filled in after the run: what the output got right, what was wrong, and what I changed._
+**Plan.** The plan's conventions became ADR 0014 before any code. The plan review changed one decision. The plan cleared the refresh cookie on a failed refresh, but two refreshes can race: the loser would delete the cookie the winner had just set, and log the user out. A failed refresh now answers 401 and leaves the cookie alone.
+
+**Build.**
+- Measuring the filter queries with `EXPLAIN` on 100,000 tasks found that the status filter added a `DISTINCT` that removed nothing but sorted whole rows: 17.4 ms instead of 0.43 ms. Fixed with `distinct=False` and a test that no filter adds `DISTINCT` ([5f54f2a](https://github.com/aaronjae22/ballast-lane-task/commit/5f54f2a)); the plans are in [`docs/query-plans.md`](../../query-plans.md).
+- Schema tests written before the frontend caught two things its generated types would have inherited: `overdue` typed as a boolean with string choices ([a279627](https://github.com/aaronjae22/ballast-lane-task/commit/a279627)), and a request body named `LoginRequestRequest` ([9a4ea17](https://github.com/aaronjae22/ballast-lane-task/commit/9a4ea17)).
+- The list takes at most 3 queries however many tasks there are, and a task's detail at most 2.
+
+**Codex review.**
+- #23, P2: the schema and Swagger endpoints weren't throttled, though ADR 0014 says they are. The next PR, #24, turned throttling on for every endpoint but health, with tests that the 31st anonymous request is a 429 ([d09d8b4](https://github.com/aaronjae22/ballast-lane-task/commit/d09d8b4)).
+- #26, P2: INFO messages from `tasks.*` were dropped, because Django configures only its own logger; the tests hid it because `caplog` lowers the level. Failing test first ([b456e5c](https://github.com/aaronjae22/ballast-lane-task/commit/b456e5c)), then a logging config ([b4d84bb](https://github.com/aaronjae22/ballast-lane-task/commit/b4d84bb)).
