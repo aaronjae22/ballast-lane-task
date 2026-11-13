@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { HttpResponse } from 'msw'
 import { afterEach, describe, expect, it } from 'vitest'
 import { refreshAnswers, users } from '../../test/handlers'
+import { onWideScreen } from '../../test/media'
 import { renderApp } from '../../test/render'
 import { server } from '../../test/server'
 import { aPage, aTask, held, listTasks, summaryOf } from '../../test/tasks'
@@ -29,26 +30,6 @@ function openList(path = '/tasks', ...answers: Parameters<typeof listTasks>) {
   const list = listTasks(...answers)
   server.use(refreshAnswers('alice-token').handler, list.handler)
   return { ...renderApp({ path }), list }
-}
-
-// The test setup's matchMedia matches nothing, which is a narrow screen. This makes the `sm`
-// breakpoint (48em) match, as on a desktop, defined the same way setup.ts defines it.
-function onWideScreen() {
-  const narrow: unknown = Reflect.get(window, 'matchMedia')
-  const define = (value: unknown) => {
-    Object.defineProperty(window, 'matchMedia', { writable: true, value })
-  }
-  define((query: string) => ({
-    matches: query.includes('48em'),
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    dispatchEvent: () => false,
-  }))
-  return () => {
-    define(narrow)
-  }
 }
 
 describe('the task list on a narrow screen', () => {
