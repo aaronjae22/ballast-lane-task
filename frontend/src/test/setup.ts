@@ -1,4 +1,5 @@
 import '@testing-library/jest-dom/vitest'
+import { notifications } from '@mantine/notifications'
 import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach } from 'vitest'
 import { checkConsole, installConsoleGuard } from './console'
@@ -49,6 +50,8 @@ beforeEach(() => {
 afterEach(() => {
   // Unmount first: a component can still warn while it unmounts.
   cleanup()
+  // Mantine keeps notifications in a module-level store, which would outlive the test.
+  notifications.clean()
   server.resetHandlers()
   try {
     checkConsole()

@@ -1,4 +1,5 @@
 import { MantineProvider } from '@mantine/core'
+import { Notifications } from '@mantine/notifications'
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import type { ComponentProps, ReactElement } from 'react'
 import { RouterProvider } from 'react-router'
@@ -14,7 +15,7 @@ export interface AppProvidersProps {
   mantineEnv?: 'default' | 'test'
 }
 
-/** Mantine, then TanStack Query, then the session, then the routes, which use all three. */
+/** Mantine and its notifications, then TanStack Query, then the session, then the routes. */
 export function AppProviders({
   auth,
   queryClient,
@@ -23,6 +24,8 @@ export function AppProviders({
 }: AppProvidersProps): ReactElement {
   return (
     <MantineProvider theme={theme} defaultColorScheme="light" env={mantineEnv}>
+      {/* Where the results of actions are reported, on every page (ADR 0018). */}
+      <Notifications />
       <QueryClientProvider client={queryClient}>
         <AuthProvider auth={auth}>
           <RouterProvider router={router} />
