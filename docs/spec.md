@@ -30,7 +30,7 @@ A small team shares a task board.
 | Frontend: responsive, CRUD, clean structure | React + TypeScript + Mantine, feature folders, TanStack Query | 5, 6 |
 | Seeded data and demo credentials | `manage.py seed_demo`, run automatically by compose; credentials in README | 4 |
 | No browser console warnings | React StrictMode on; explicit check in 6 | 6 |
-| GenAI: prompt, output, validation, corrections, edge cases, performance | [`docs/ai-usage.md`](ai-usage.md), [`docs/ai/prompts/`](ai/prompts/), Codex PR reviews (section 12) | Throughout, final in 8 |
+| GenAI: prompt, output, validation, corrections, edge cases, performance | [`GENAI.md`](../GENAI.md), [`docs/ai/prompts/`](ai/prompts/), Codex PR reviews (section 12) | Throughout, final in 8 |
 
 ## 3. Domain
 
@@ -207,10 +207,10 @@ See [ADR 0008](adr/0008-python-tooling-uv-ruff-precommit.md).
 /
   backend/              Django project (own Dockerfile, pyproject.toml, uv.lock)
   frontend/             React app (own Dockerfile: Vite dev / Node build → nginx)
+  GENAI.md              GenAI section
   docs/
     spec.md             this spec
     adr/                decision records
-    ai-usage.md         GenAI section
     ai/prompts/         prompts used per iteration
   .github/workflows/
   .vscode/              settings.json, extensions.json
@@ -249,7 +249,7 @@ Separate roles, and no agent reviews its own work. See [ADR 0010](adr/0010-ai-wo
 | The brief asks for | Evidence |
 |---|---|
 | The prompt | `docs/ai/prompts/01-scaffold.md`, plus one prompt per iteration |
-| Output code | The `Co-Authored-By: Claude` commits from prompt 01, before my corrections, and a representative sample in `docs/ai-usage.md` |
+| Output code | The `Co-Authored-By: Claude` commits from prompt 01, before my corrections, and a representative sample in `GENAI.md` |
 | How suggestions were validated | Tests written first, coverage gate, import-linter, ruff, Codex PR reviews, a manual review checklist |
 | Corrections and improvements | A findings table: issue → fix → commit link |
 | Edge cases, authentication, validation | Permission-matrix test, transition tests, due-date rules, token refresh and expiry, throttling |
@@ -305,5 +305,5 @@ Each iteration ends with tests and CI green, Codex's review addressed, and an AD
 
 **8. Docs and GenAI write-up**
 - README: setup, demo credentials, architecture diagram, key decisions linking the ADRs
-- `docs/ai-usage.md` completed against the evidence table in section 12
+- `GENAI.md` completed against the evidence table in section 12
 - Final coverage check, tag `v1.0.0`
