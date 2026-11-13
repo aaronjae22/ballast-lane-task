@@ -28,3 +28,14 @@ export function formatDay(day: string): string {
   const [year, month, date] = day.split('-').map(Number) as [number, number, number]
   return dayFormat.format(Date.UTC(year, month - 1, date))
 }
+
+// No timeZone: an instant shows in the browser's own.
+const timestampFormat = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+/** An instant from the API (created_at and the like) in local time: "Nov 12, 2026, 9:05 AM". */
+export function formatTimestamp(iso: string): string {
+  return timestampFormat.format(new Date(iso))
+}

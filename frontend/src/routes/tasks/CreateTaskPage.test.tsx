@@ -8,7 +8,7 @@ import { refreshAnswers } from '../../test/handlers'
 import { createTestQueryClient } from '../../test/queryClient'
 import { renderApp } from '../../test/render'
 import { server } from '../../test/server'
-import { aPage, aTask, createTask, held } from '../../test/tasks'
+import { aPage, aTask, createTask, getTask, held } from '../../test/tasks'
 
 const created = aTask({ id: 31, title: 'Write the report' })
 
@@ -17,7 +17,8 @@ function openCreate(
   queryClient = createTestQueryClient(),
 ) {
   const create = createTask(...answers)
-  server.use(refreshAnswers('alice-token').handler, create.handler)
+  // After creating, the page opens the new task, which loads it.
+  server.use(refreshAnswers('alice-token').handler, create.handler, getTask(created).handler)
   return { ...renderApp({ path: '/tasks/new', queryClient }), create }
 }
 
@@ -45,6 +46,7 @@ describe('creating a task', () => {
     await submit()
 
     expect(await screen.findByText('Task created.')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Write the report' })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/tasks/31')
     expect(create.bodies()).toEqual([
       { title: 'Write the report', description: '', due_date: null, assignee_id: null },

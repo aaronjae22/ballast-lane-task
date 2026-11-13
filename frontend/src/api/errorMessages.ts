@@ -29,6 +29,16 @@ const unavailable: ErrorDescription = {
   message: 'Check your connection, then try again.',
 }
 
+/**
+ * A 404, and also a task id that can't exist. Deleted and not visible are the same answer
+ * (ADR 0003), and so is the message.
+ */
+export const taskNotFound: ErrorDescription = {
+  kind: 'not_found',
+  title: 'Task not found',
+  message: "It may have been deleted, or it's no longer shared with you.",
+}
+
 // A 405 or 415 means the app sent something the API never takes: a bug, not the user's doing.
 const unexpected: ErrorDescription = {
   kind: 'unexpected',
@@ -66,12 +76,7 @@ export function describeError(error: unknown): ErrorDescription {
         message: detail ?? "You don't have permission to do that.",
       }
     case 404:
-      // Deleted and not visible are the same answer (ADR 0003), and so is the message.
-      return {
-        kind: 'not_found',
-        title: 'Task not found',
-        message: "It may have been deleted, or it's no longer shared with you.",
-      }
+      return taskNotFound
     case 409:
       return {
         kind: 'conflict',
