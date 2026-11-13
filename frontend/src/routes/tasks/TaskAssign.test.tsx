@@ -6,7 +6,7 @@ import type { Schemas } from '../../test/api'
 import { admin, currentUser, refreshAnswers, users } from '../../test/handlers'
 import { renderApp } from '../../test/render'
 import { server } from '../../test/server'
-import { aPage, aTask, assignTask, getTask, listTasks, summaryOf } from '../../test/tasks'
+import { aPage, aTask, assignTask, getTask, held, listTasks, summaryOf } from '../../test/tasks'
 
 // Assign, reassign and unassign (spec section 3), from the More menu on the task page and in
 // the list. The picker offers the active users from /api/users/ (ADR 0018).
@@ -129,6 +129,49 @@ describe('the Assign dialog', () => {
 
     expect(screen.queryByRole('dialog', { name: 'Assign task' })).not.toBeInTheDocument()
     expect(assign.bodies()).toEqual([])
+  })
+})
+
+describe('while it saves', () => {
+  // Closing the dialog mid-save and opening it again would start a second assignment, which
+  // could finish first and be overwritten by the earlier one (ADR 0018: the task's other
+  // actions wait for a running change).
+  it("the dialog can't be closed, and the task's other actions wait", async () => {
+    const response = held()
+    const { assign } = openTask([
+      async () => {
+        await response.wait
+        return HttpResponse.json({ ...invoice, assignee: summaryOf(users.carol) })
+      },
+    ])
+    const dialog = await openAssign()
+    await pick('Carol Diaz')
+
+    await userEvent.click(dialog.getByRole('button', { name: 'Save' }))
+
+    expect(dialog.getByRole('button', { name: 'Save' })).toHaveAttribute('data-loading', 'true')
+    expect(dialog.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(dialog.queryByRole('button', { name: 'Close' })).not.toBeInTheDocument()
+    await userEvent.keyboard('{Escape}')
+    expect(screen.getByRole('dialog', { name: 'Assign task' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'More', hidden: true })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Start', hidden: true })).toBeDisabled()
+
+    response.release()
+
+    expect(await screen.findByText('Assigned to Carol Diaz.')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Assign task' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'More' })).toBeEnabled()
+    expect(assign.bodies()).toHaveLength(1)
+  })
+
+  it('can be closed with its Close button when nothing is saving', async () => {
+    openTask([invoice])
+    const dialog = await openAssign()
+
+    await userEvent.click(dialog.getByRole('button', { name: 'Close' }))
+
+    expect(screen.queryByRole('dialog', { name: 'Assign task' })).not.toBeInTheDocument()
   })
 })
 
