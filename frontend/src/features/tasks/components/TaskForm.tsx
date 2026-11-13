@@ -6,6 +6,7 @@ import { Controller, useForm, type Control } from 'react-hook-form'
 import { Link } from 'react-router'
 import { describeError, fieldErrorsOf } from '../../../api/errorMessages'
 import { useActiveUsers } from '../../users/hooks/useActiveUsers'
+import { assigneeOptions, fromOptionValue, toOptionValue } from '../assigneeOptions'
 import { emptyTaskForm, taskFormSchema, type ChangedFields, type TaskFormValues } from '../schemas'
 
 interface TaskFormProps {
@@ -126,14 +127,14 @@ function AssigneeSelect({
       render={({ field }) => (
         <Select
           label="Assignee"
-          placeholder="Unassigned"
-          clearable
           searchable
-          data={(users.data ?? []).map((user) => ({ value: String(user.id), label: user.name }))}
-          value={field.value === null ? null : String(field.value)}
+          data={assigneeOptions(users.data ?? [])}
+          value={toOptionValue(field.value)}
           onChange={(value) => {
-            field.onChange(value === null ? null : Number(value))
+            // Picking the selected option again would deselect it; the value stays.
+            if (value !== null) field.onChange(fromOptionValue(value))
           }}
+          allowDeselect={false}
           onBlur={field.onBlur}
           disabled={users.isError}
           description={
